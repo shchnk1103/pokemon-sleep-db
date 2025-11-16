@@ -4,12 +4,13 @@
 
 ## 项目概述
 
-此代码库包含Pokemon Sleep配套应用程序的数据库结构文档。数据库使用Supabase/PostgreSQL构建，包含与Pokemon Sleep游戏中的宝可梦、树果、食材、性格和技能系统相关的表格。使用最新的 NextJS + typescript 来展示所有的信息，样式部分使用Sass。
+此代码库包含Pokemon Sleep配套应用程序的完整实现。项目分为两个主要部分：
+1. 数据库结构文档：使用Supabase/PostgreSQL构建，包含与Pokemon Sleep游戏中的宝可梦、树果、食材、性格和技能系统相关的表格。
+2. 前端应用：使用最新的Next.js 16+、React 19、TypeScript和Tailwind CSS构建的现代化Web应用。
 
 ## MCP 运用
 
 - 读取或者操作文件时，积极使用 filesystem MCP。
-
 - 在编写代码前使用 context7 MCP 查阅对应文档之后参考官网的最佳实践。
 - 操作 Supabase 数据库时使用 Supabase MCP。
 - 对于项目管理，积极使用 GitHub MCP
@@ -39,15 +40,43 @@
 
 根据在`.claude/settings.local.json`中找到的配置，此项目启用了Supabase集成，表明使用Supabase进行数据库操作。
 
-## 开发命令
+## 前端应用架构
 
-此代码库主要包含数据库文档，因此典型的开发工作流程包括：
+前端应用位于 `pokemonsleep-nextjs` 目录中，使用Next.js 16+、React 19、TypeScript和Tailwind CSS构建。
+
+### 目录结构
+- `app/` - 使用App Router的页面和布局
+  - `layout.tsx` - 根布局组件
+  - `page.tsx` - 主页组件
+  - `globals.css` - 全局样式文件
+- `public/` - 静态资源目录
+- `package.json` - 项目依赖和脚本
+- `tsconfig.json` - TypeScript配置
+- `eslint.config.mjs` - ESLint配置
+- `next.config.ts` - Next.js配置
+- `postcss.config.mjs` - PostCSS配置
+
+### 技术栈
+- **Next.js 16+** - React框架，提供SSR、SSG等功能
+- **React 19** - UI库
+- **TypeScript** - 类型安全
+- **Tailwind CSS v4** - CSS框架
+- **pnpm** - 包管理器
+- **ESLint** - 代码质量检查
+
+## 开发命令
 
 ### 数据库操作
 - 使用Supabase CLI进行本地开发: `supabase start`
 - 推送模式更改: `supabase db push`
 - 拉取远程模式: `supabase db pull`
 - 运行数据库迁移: `supabase db reset`
+
+### 前端应用开发
+- 启动开发服务器: `cd pokemonsleep-nextjs && pnpm dev`
+- 构建生产版本: `cd pokemonsleep-nextjs && pnpm build`
+- 运行生产服务器: `cd pokemonsleep-nextjs && pnpm start`
+- 运行ESLint检查: `cd pokemonsleep-nextjs && pnpm lint`
 
 ### 文档管理
 - 在对表进行更改时更新数据库模式文档
