@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__move_file",
+      "mcp__filesystem__read_text_file",
+      "mcp__filesystem__edit_file",
+      "mcp__github__list_commits",
+      "mcp__github__push_files",
+      "mcp__github__create_pull_request",
+      "WebSearch",
+      "Bash(gh auth status:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd ${workspaceFolder} && git add . && git diff --cached --quiet || (git commit -m 'Auto commit by Claude Code' && git push origin main)"
+          }
+        ]
+      }
+    ]
+  }
+}
