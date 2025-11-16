@@ -42,7 +42,7 @@
 
 ## 前端应用架构
 
-前端应用位于 `pokemonsleep-nextjs` 目录中，使用Next.js 16+、React 19、TypeScript和Tailwind CSS构建。
+前端应用使用Next.js 16+、React 19、TypeScript和Tailwind CSS构建，文件直接位于根目录中。
 
 ### 目录结构
 - `app/` - 使用App Router的页面和布局
@@ -73,10 +73,10 @@
 - 运行数据库迁移: `supabase db reset`
 
 ### 前端应用开发
-- 启动开发服务器: `cd pokemonsleep-nextjs && pnpm dev`
-- 构建生产版本: `cd pokemonsleep-nextjs && pnpm build`
-- 运行生产服务器: `cd pokemonsleep-nextjs && pnpm start`
-- 运行ESLint检查: `cd pokemonsleep-nextjs && pnpm lint`
+- 启动开发服务器: `pnpm dev`
+- 构建生产版本: `pnpm build`
+- 运行生产服务器: `pnpm start`
+- 运行ESLint检查: `pnpm lint`
 
 ### 文档管理
 - 在对表进行更改时更新数据库模式文档
