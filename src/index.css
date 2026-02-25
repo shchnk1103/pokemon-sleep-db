@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg-grad-1: radial-gradient(circle at 2% 2%, #d9f4ff 0%, transparent 40%);
+  --bg-grad-2: radial-gradient(circle at 100% 0%, #e8e7ff 0%, transparent 32%);
+  --bg-grad-3: linear-gradient(180deg, #eff6ff 0%, #f9fbff 40%, #f8fcff 100%);
+
+  --text-main: #132746;
+  --text-secondary: #2b4a71;
+  --text-muted: #4d6f9b;
+
+  --surface-nav: rgba(255, 255, 255, 0.62);
+  --surface-card: rgba(255, 255, 255, 0.66);
+  --surface-border: rgba(255, 255, 255, 0.5);
+  --surface-shadow: rgba(20, 50, 90, 0.08);
+
+  --pill-active-bg: #dbeaff;
+
+  --button-primary-bg: #1f5ca8;
+  --button-primary-text: #ffffff;
+  --button-ghost-text: #1f5ca8;
+  --button-ghost-border: #9abcea;
+
+  --status-info-bg: rgba(67, 116, 183, 0.12);
+  --status-info-border: rgba(67, 116, 183, 0.25);
+  --status-info-text: #254f84;
+  --status-success-bg: rgba(39, 138, 92, 0.12);
+  --status-success-border: rgba(39, 138, 92, 0.28);
+  --status-success-text: #1b6943;
+  --status-warning-bg: rgba(194, 136, 28, 0.14);
+  --status-warning-border: rgba(194, 136, 28, 0.32);
+  --status-warning-text: #7b4c08;
+
+  --subskill-gold-bg: linear-gradient(145deg, rgba(255, 229, 153, 0.78), rgba(255, 205, 86, 0.52));
+  --subskill-gold-border: rgba(202, 145, 34, 0.65);
+  --subskill-gold-text: #523607;
+  --subskill-white-bg: linear-gradient(145deg, rgba(250, 253, 255, 0.9), rgba(235, 244, 255, 0.68));
+  --subskill-white-border: rgba(158, 180, 216, 0.6);
+  --subskill-white-text: #1d355c;
+  --subskill-blue-bg: linear-gradient(145deg, rgba(163, 202, 255, 0.74), rgba(95, 147, 227, 0.56));
+  --subskill-blue-border: rgba(73, 112, 182, 0.66);
+  --subskill-blue-text: #0f2f62;
+
+  font-family: 'Outfit', 'Trebuchet MS', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-main);
+  background: var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --bg-grad-1: radial-gradient(circle at 2% 2%, #2a3656 0%, transparent 40%);
+  --bg-grad-2: radial-gradient(circle at 100% 0%, #182535 0%, transparent 32%);
+  --bg-grad-3: linear-gradient(180deg, #0e1523 0%, #101a2a 40%, #101924 100%);
+
+  --text-main: #e8f0ff;
+  --text-secondary: #bdcce8;
+  --text-muted: #95a9ce;
+
+  --surface-nav: rgba(16, 24, 39, 0.62);
+  --surface-card: rgba(17, 27, 44, 0.66);
+  --surface-border: rgba(122, 146, 183, 0.28);
+  --surface-shadow: rgba(0, 0, 0, 0.35);
+
+  --pill-active-bg: #223756;
+
+  --button-primary-bg: #5a9cff;
+  --button-primary-text: #10203a;
+  --button-ghost-text: #a8c9ff;
+  --button-ghost-border: #4a6da0;
+
+  --status-info-bg: rgba(99, 160, 245, 0.16);
+  --status-info-border: rgba(99, 160, 245, 0.35);
+  --status-info-text: #cfe2ff;
+  --status-success-bg: rgba(73, 201, 139, 0.18);
+  --status-success-border: rgba(73, 201, 139, 0.34);
+  --status-success-text: #d9f8e8;
+  --status-warning-bg: rgba(255, 184, 76, 0.18);
+  --status-warning-border: rgba(255, 184, 76, 0.34);
+  --status-warning-text: #ffe9c7;
+
+  --subskill-gold-bg: linear-gradient(145deg, rgba(118, 88, 22, 0.7), rgba(146, 112, 34, 0.52));
+  --subskill-gold-border: rgba(233, 193, 97, 0.58);
+  --subskill-gold-text: #fff0c6;
+  --subskill-white-bg: linear-gradient(145deg, rgba(64, 77, 101, 0.72), rgba(45, 58, 81, 0.58));
+  --subskill-white-border: rgba(170, 193, 225, 0.5);
+  --subskill-white-text: #f0f6ff;
+  --subskill-blue-bg: linear-gradient(145deg, rgba(53, 84, 132, 0.75), rgba(36, 63, 103, 0.62));
+  --subskill-blue-border: rgba(130, 177, 252, 0.55);
+  --subskill-blue-text: #e1efff;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3);
+  color: var(--text-main);
+  transition: background 280ms ease, color 280ms ease;
+}
