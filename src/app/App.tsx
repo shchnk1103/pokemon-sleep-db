@@ -1,38 +1,27 @@
-import { useEffect, useRef, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { AppFooter } from '../components/AppFooter'
+import { DropdownMenu } from '../components/DropdownMenu'
 import { GlobalToastViewport } from '../components/GlobalToastViewport'
-import { ThemeToggle } from '../components/ThemeToggle'
+import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../hooks/useTheme'
 import { AboutPage } from '../pages/AboutPage'
 import { AssetDexPage } from '../pages/AssetDexPage'
+import { AuthPage } from '../pages/AuthPage'
 import { DexPage } from '../pages/DexPage'
 import { HomePage } from '../pages/HomePage'
 import { NewsDetailPage } from '../pages/NewsDetailPage'
 import { NewsPage } from '../pages/NewsPage'
+import { ProfilePage } from '../pages/ProfilePage'
 import '../styles/app.css'
 
 function AppLayout() {
   const { preference, activeTheme, systemTheme, setPreference } = useTheme()
+  const { isAuthenticated, logout, profile, session } = useAuth()
   const location = useLocation()
-  const [isDexMenuOpen, setIsDexMenuOpen] = useState(false)
-  const dexMenuRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    setIsDexMenuOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!dexMenuRef.current?.contains(event.target as Node)) {
-        setIsDexMenuOpen(false)
-      }
-    }
-
-    window.addEventListener('mousedown', handleOutsideClick)
-    return () => window.removeEventListener('mousedown', handleOutsideClick)
-  }, [])
 
   const isDexSectionActive = location.pathname.startsWith('/dex')
+  const baseName = profile?.displayName?.trim() || session?.user.email?.split('@')[0] || '用户'
+  const userDisplayName = baseName.length > 12 ? `${baseName.slice(0, 12)}…` : baseName
 
   return (
     <>
@@ -43,55 +32,98 @@ function AppLayout() {
           </NavLink>
 
           <div className="top-nav-right">
-            <nav>
+            <nav className="top-nav-links">
               <NavLink to="/" end>
                 首页
               </NavLink>
               <NavLink to="/news">新闻</NavLink>
-
-              <div
-                ref={dexMenuRef}
-                className={`nav-dropdown ${isDexMenuOpen ? 'is-open' : ''}`}
-                onMouseEnter={() => setIsDexMenuOpen(true)}
-                onMouseLeave={() => setIsDexMenuOpen(false)}
+              <DropdownMenu
+                hoverable
+                className="nav-dropdown"
+                panelClassName="nav-dropdown-menu"
+                trigger={({ isOpen, toggle }) => (
+                  <button
+                    type="button"
+                    className={`nav-dropdown-trigger ${isDexSectionActive ? 'active' : ''}`}
+                    onClick={toggle}
+                    aria-expanded={isOpen}
+                    aria-haspopup="menu"
+                  >
+                    图鉴
+                    <span className="nav-dropdown-caret">▾</span>
+                  </button>
+                )}
               >
-                <button
-                  type="button"
-                  className={`nav-dropdown-trigger ${isDexSectionActive ? 'active' : ''}`}
-                  onClick={() => setIsDexMenuOpen((current) => !current)}
-                  aria-expanded={isDexMenuOpen}
-                  aria-haspopup="menu"
-                >
-                  图鉴
-                  <span className="nav-dropdown-caret">▾</span>
-                </button>
-
-                <div className="nav-dropdown-menu" role="menu" aria-label="图鉴菜单">
-                  <NavLink to="/dex" end>
-                    宝可梦图鉴
-                  </NavLink>
-                  <NavLink to="/dex/berries">树果图鉴</NavLink>
-                  <NavLink to="/dex/ingredients">食材图鉴</NavLink>
-                  <NavLink to="/dex/main-skills">主技能图鉴</NavLink>
-                  <NavLink to="/dex/sub-skills">副技能图鉴</NavLink>
-                </div>
-              </div>
+                <NavLink to="/dex" end>
+                  宝可梦图鉴
+                </NavLink>
+                <NavLink to="/dex/berries">树果图鉴</NavLink>
+                <NavLink to="/dex/ingredients">食材图鉴</NavLink>
+                <NavLink to="/dex/main-skills">主技能图鉴</NavLink>
+                <NavLink to="/dex/sub-skills">副技能图鉴</NavLink>
+              </DropdownMenu>
 
               <NavLink to="/about">关于我</NavLink>
             </nav>
 
-            <ThemeToggle
-              preference={preference}
-              activeTheme={activeTheme}
-              systemTheme={systemTheme}
-              onSelect={setPreference}
-            />
+            <div className="top-nav-auth">
+              {isAuthenticated ? (
+                <DropdownMenu
+                  hoverable
+                  align="right"
+                  className="user-menu"
+                  panelClassName="user-menu-panel"
+                  trigger={({ isOpen, toggle }) => (
+                    <button
+                      type="button"
+                      className={`user-menu-trigger ${isOpen ? 'active' : ''}`}
+                      onClick={toggle}
+                      aria-expanded={isOpen}
+                      aria-haspopup="menu"
+                      title={profile?.displayName || session?.user.email || '用户'}
+                    >
+                      <span className="user-menu-name">{userDisplayName}</span>
+                      <span className="user-menu-caret">▾</span>
+                    </button>
+                  )}
+                >
+                  {({ close }) => (
+                    <>
+                      <NavLink
+                        to="/profile"
+                        onClick={() => {
+                          close()
+                        }}
+                      >
+                        个人中心
+                      </NavLink>
+                      <button
+                        type="button"
+                        className="user-menu-action"
+                        onClick={() => {
+                          close()
+                          void logout()
+                        }}
+                      >
+                        退出
+                      </button>
+                    </>
+                  )}
+                </DropdownMenu>
+              ) : (
+                <NavLink to="/auth" className="auth-entry-link">
+                  登录/注册
+                </NavLink>
+              )}
+            </div>
           </div>
         </header>
 
         <main>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/news" element={<NewsPage />} />
             <Route path="/news/:newsId" element={<NewsDetailPage />} />
             <Route path="/dex" element={<DexPage />} />
@@ -114,6 +146,13 @@ function AppLayout() {
             <Route path="/about" element={<AboutPage />} />
           </Routes>
         </main>
+
+        <AppFooter
+          preference={preference}
+          activeTheme={activeTheme}
+          systemTheme={systemTheme}
+          onSelectTheme={setPreference}
+        />
       </div>
       <GlobalToastViewport />
     </>
