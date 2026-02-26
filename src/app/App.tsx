@@ -7,6 +7,8 @@ import { AboutPage } from '../pages/AboutPage'
 import { AssetDexPage } from '../pages/AssetDexPage'
 import { DexPage } from '../pages/DexPage'
 import { HomePage } from '../pages/HomePage'
+import { NewsDetailPage } from '../pages/NewsDetailPage'
+import { NewsPage } from '../pages/NewsPage'
 import '../styles/app.css'
 
 function AppLayout() {
@@ -45,6 +47,7 @@ function AppLayout() {
               <NavLink to="/" end>
                 首页
               </NavLink>
+              <NavLink to="/news">新闻</NavLink>
 
               <div
                 ref={dexMenuRef}
@@ -64,7 +67,9 @@ function AppLayout() {
                 </button>
 
                 <div className="nav-dropdown-menu" role="menu" aria-label="图鉴菜单">
-                  <NavLink to="/dex">宝可梦图鉴</NavLink>
+                  <NavLink to="/dex" end>
+                    宝可梦图鉴
+                  </NavLink>
                   <NavLink to="/dex/berries">树果图鉴</NavLink>
                   <NavLink to="/dex/ingredients">食材图鉴</NavLink>
                   <NavLink to="/dex/main-skills">主技能图鉴</NavLink>
@@ -87,6 +92,8 @@ function AppLayout() {
         <main>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/:newsId" element={<NewsDetailPage />} />
             <Route path="/dex" element={<DexPage />} />
             <Route
               path="/dex/berries"
