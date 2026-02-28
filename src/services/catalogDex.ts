@@ -1,4 +1,11 @@
-import type { AssetDexCard, AssetDexCatalog, AssetDexLoadResult, SubSkillEffectType } from '../types/catalog'
+import type {
+  AssetDexCard,
+  AssetDexCatalog,
+  AssetDexLoadResult,
+  MainSkillLevel,
+  MainSkillLevelsLoadResult,
+  SubSkillEffectType,
+} from '../types/catalog'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -6,13 +13,27 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim()
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 const CATALOG_CACHE_TTL_MS = 1000 * 60 * 10
 const CATALOG_CACHE_KEY_PREFIX = 'pokesleep:catalog-cache:v1:'
+const MAIN_SKILL_LEVEL_CACHE_TTL_MS = 1000 * 60 * 10
 
 type CatalogCachePayload = {
   expiresAt: number
   data: AssetDexCard[]
 }
 
+type MainSkillLevelCachePayload = {
+  expiresAt: number
+  data: MainSkillLevel[]
+}
+
+type MainSkillLevelRow = {
+  skillId: number | null
+  level: number
+  value: number | string
+  extraEffects: unknown | null
+}
+
 const memoryCache = new Map<AssetDexCatalog, CatalogCachePayload>()
+const mainSkillLevelMemoryCache = new Map<number, MainSkillLevelCachePayload>()
 
 const tableCandidates: Record<AssetDexCatalog, string[]> = {
   berries: ['berries'],
@@ -90,8 +111,11 @@ async function fetchTableRows(table: string): Promise<UnknownRecord[]> {
 
   const query = new URLSearchParams({
     select: '*',
-    order: 'id.asc',
   })
+
+  if (table !== 'mainskill_levels' && table !== 'main_skill_levels') {
+    query.set('order', 'id.asc')
+  }
 
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
     headers: createHeaders(),
@@ -129,6 +153,38 @@ function mapCatalogRow(row: UnknownRecord): AssetDexCard | null {
     effectType: normalizeEffectType(row.effect_type),
     imageUrl: pickString(row, ['icon_url', 'image_url', 'img_url']),
   }
+}
+
+function mapMainSkillLevelRow(row: UnknownRecord): MainSkillLevelRow | null {
+  const level = parseNumber(row.level)
+  if (level === null) {
+    return null
+  }
+
+  const rawValue = row.value
+  let value: number | string
+  if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+    value = rawValue
+  } else if (typeof rawValue === 'string' && rawValue.trim().length > 0) {
+    const trimmed = rawValue.trim()
+    const asNumber = Number(trimmed)
+    value = Number.isFinite(asNumber) ? asNumber : trimmed
+  } else {
+    return null
+  }
+
+  const skillId =
+    parseNumber(row.mainskill_id) ??
+    parseNumber(row.main_skill_id) ??
+    parseNumber(row.main_skill) ??
+    parseNumber(row.mainskill) ??
+    parseNumber(row.skill_id)
+
+  const rawExtraEffects = row.extra_effects
+  const extraEffects =
+    rawExtraEffects === null || rawExtraEffects === undefined || rawExtraEffects === '' ? null : rawExtraEffects
+
+  return { skillId, level, value, extraEffects }
 }
 
 function sessionKey(catalog: AssetDexCatalog) {
@@ -186,6 +242,23 @@ async function resolveRows(catalog: AssetDexCatalog): Promise<UnknownRecord[]> {
   for (const table of tableCandidates[catalog]) {
     try {
       return await fetchTableRows(table)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      errors.push(message)
+    }
+  }
+
+  throw new Error(errors.join('；'))
+}
+
+async function resolveMainSkillLevelRows(): Promise<UnknownRecord[]> {
+  const levelTableCandidates = ['mainskill_levels', 'main_skill_levels']
+  const errors: string[] = []
+
+  for (const table of levelTableCandidates) {
+    try {
+      const rows = await fetchTableRows(table)
+      return rows
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       errors.push(message)
@@ -256,6 +329,62 @@ export async function fetchAssetDexEntries(catalog: AssetDexCatalog): Promise<As
       data: [],
       source: 'fallback',
       message: `加载图鉴失败：${message}`,
+      total: 0,
+    }
+  }
+}
+
+export async function fetchMainSkillLevels(skillId: number): Promise<MainSkillLevelsLoadResult> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return {
+      data: [],
+      source: 'fallback',
+      message: '未检测到 Supabase 环境变量，无法加载主技能等级数据。',
+      total: 0,
+    }
+  }
+
+  const now = Date.now()
+  const cached = mainSkillLevelMemoryCache.get(skillId)
+  if (cached && cached.expiresAt > now) {
+    return {
+      data: cached.data,
+      source: 'supabase',
+      total: cached.data.length,
+      message: `已从缓存加载 ${cached.data.length} 条主技能等级数据。`,
+    }
+  }
+
+  try {
+    const rows = await resolveMainSkillLevelRows()
+    const mapped = rows.map((row) => mapMainSkillLevelRow(row)).filter((row): row is MainSkillLevelRow => row !== null)
+    const hasSkillRef = mapped.some((row) => row.skillId !== null)
+    const filtered = hasSkillRef ? mapped.filter((row) => row.skillId === skillId) : mapped
+    const data = filtered
+      .map((row) => ({
+        level: row.level,
+        value: row.value,
+        extraEffects: row.extraEffects,
+      }))
+      .sort((a, b) => a.level - b.level)
+
+    mainSkillLevelMemoryCache.set(skillId, {
+      expiresAt: now + MAIN_SKILL_LEVEL_CACHE_TTL_MS,
+      data,
+    })
+
+    return {
+      data,
+      source: 'supabase',
+      total: data.length,
+      message: `已加载 ${data.length} 条主技能等级数据。`,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return {
+      data: [],
+      source: 'fallback',
+      message: `加载主技能等级数据失败：${message}`,
       total: 0,
     }
   }

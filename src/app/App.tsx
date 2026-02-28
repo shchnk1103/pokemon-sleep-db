@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { AppFooter } from '../components/AppFooter'
 import { DropdownMenu } from '../components/DropdownMenu'
@@ -12,6 +13,7 @@ import { HomePage } from '../pages/HomePage'
 import { NewsDetailPage } from '../pages/NewsDetailPage'
 import { NewsPage } from '../pages/NewsPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { MainSkillCreatePage } from '../pages/MainSkillCreatePage'
 import '../styles/app.css'
 
 function AppLayout() {
@@ -22,6 +24,41 @@ function AppLayout() {
   const isDexSectionActive = location.pathname.startsWith('/dex')
   const baseName = profile?.displayName?.trim() || session?.user.email?.split('@')[0] || '用户'
   const userDisplayName = baseName.length > 12 ? `${baseName.slice(0, 12)}…` : baseName
+
+  useEffect(() => {
+    const scrollingClass = 'is-scrolling'
+    let hideTimer: number | null = null
+
+    const markScrolling = () => {
+      document.documentElement.classList.add(scrollingClass)
+
+      if (hideTimer !== null) {
+        window.clearTimeout(hideTimer)
+      }
+
+      hideTimer = window.setTimeout(() => {
+        document.documentElement.classList.remove(scrollingClass)
+      }, 720)
+    }
+
+    markScrolling()
+
+    document.addEventListener('scroll', markScrolling, { capture: true, passive: true })
+    window.addEventListener('wheel', markScrolling, { passive: true })
+    window.addEventListener('touchmove', markScrolling, { passive: true })
+
+    return () => {
+      document.removeEventListener('scroll', markScrolling, true)
+      window.removeEventListener('wheel', markScrolling)
+      window.removeEventListener('touchmove', markScrolling)
+
+      if (hideTimer !== null) {
+        window.clearTimeout(hideTimer)
+      }
+
+      document.documentElement.classList.remove(scrollingClass)
+    }
+  }, [])
 
   return (
     <>
@@ -139,6 +176,7 @@ function AppLayout() {
               path="/dex/main-skills"
               element={<AssetDexPage catalog="mainskills" title="主技能图鉴" description="展示主技能图片与基础数值区间。" />}
             />
+            <Route path="/dex/main-skills/new" element={<MainSkillCreatePage />} />
             <Route
               path="/dex/sub-skills"
               element={<AssetDexPage catalog="subskills" title="副技能图鉴" description="展示副技能图片与基础数值区间。" />}
