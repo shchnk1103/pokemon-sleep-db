@@ -23,3 +23,16 @@ export type AssetDexLoadResult = {
   message?: string
   total: number
 }
+
+export type MainSkillLevel = {
+  level: number
+  value: number | string
+  extraEffects: unknown | null
+}
+
+export type MainSkillLevelsLoadResult = {
+  data: MainSkillLevel[]
+  source: 'supabase' | 'fallback'
+  message?: string
+  total: number
+}
