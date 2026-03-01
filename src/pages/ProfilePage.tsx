@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { ImageDropzoneField } from '../components/ImageDropzoneField'
 import { useAuth } from '../context/AuthContext'
+import { deletePublicImageByUrl, uploadPublicImage } from '../services/mediaStorage'
+import { MaterialIcon } from '../components/MaterialIcon'
 
 function formatDate(value: string): string {
   if (!value) {
@@ -16,6 +19,9 @@ function formatDate(value: string): string {
 export function ProfilePage() {
   const { isReady, isAuthenticated, session, profile, saveProfile, reloadProfile } = useAuth()
   const [displayNameInput, setDisplayNameInput] = useState('')
+  const [avatarUrlInput, setAvatarUrlInput] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [initialAvatarUrl, setInitialAvatarUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [errorText, setErrorText] = useState('')
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -30,7 +36,11 @@ export function ProfilePage() {
 
   useEffect(() => {
     setDisplayNameInput(profile?.displayName ?? '')
-  }, [profile?.displayName])
+    const avatar = profile?.avatarUrl ?? ''
+    setAvatarUrlInput(avatar)
+    setInitialAvatarUrl(avatar)
+    setAvatarFile(null)
+  }, [profile?.avatarUrl, profile?.displayName])
 
   useEffect(() => {
     if (!isEditorOpen) {
@@ -58,9 +68,26 @@ export function ProfilePage() {
     setErrorText('')
     setIsSaving(true)
     try {
+      if (!session) {
+        throw new Error('当前未登录。')
+      }
+
+      let nextAvatarUrl = avatarUrlInput.trim()
+      if (avatarFile) {
+        nextAvatarUrl = await uploadPublicImage(session, avatarFile, 'avatars')
+      }
+
       await saveProfile({
         displayName: displayNameInput,
+        avatarUrl: nextAvatarUrl,
       })
+
+      if (initialAvatarUrl && initialAvatarUrl !== nextAvatarUrl) {
+        await deletePublicImageByUrl(session, initialAvatarUrl).catch(() => null)
+      }
+      setAvatarUrlInput(nextAvatarUrl)
+      setInitialAvatarUrl(nextAvatarUrl)
+      setAvatarFile(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : '资料更新失败。'
       setErrorText(message)
@@ -78,6 +105,17 @@ export function ProfilePage() {
       </header>
 
       <article className="dex-card profile-card">
+        <div className="profile-avatar-header">
+          <div className="profile-avatar-frame" aria-label="当前头像">
+            {profile?.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="当前头像" className="profile-avatar-image" />
+            ) : (
+              <span className="profile-avatar-fallback" aria-hidden="true">
+                <MaterialIcon name="person" className="profile-avatar-fallback-icon" size={36} />
+              </span>
+            )}
+          </div>
+        </div>
         <dl>
           <div>
             <dt>邮箱</dt>
@@ -138,6 +176,21 @@ export function ProfilePage() {
                 required
               />
             </label>
+            <ImageDropzoneField
+              label="头像"
+              imageUrl={avatarUrlInput}
+              file={avatarFile}
+              onPickFile={(file) => {
+                setAvatarFile(file)
+                setErrorText('')
+              }}
+              onClear={() => {
+                setAvatarFile(null)
+                setAvatarUrlInput('')
+              }}
+              hint="拖入图片到这里，或点击区域上传头像。"
+              disabled={isSaving}
+            />
             <p className="profile-edit-hint">为安全起见，仅允许修改当前登录账号自身资料。</p>
             {errorText && <p className="auth-error-text">{errorText}</p>}
             <button type="submit" className="button primary auth-submit-btn" disabled={isSaving}>

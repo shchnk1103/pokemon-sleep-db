@@ -11,6 +11,7 @@
 
   --surface-nav: rgba(255, 255, 255, 0.62);
   --surface-card: rgba(255, 255, 255, 0.66);
+  --surface-dropdown: rgba(247, 252, 255, 0.92);
   --surface-border: rgba(255, 255, 255, 0.5);
   --surface-shadow: rgba(20, 50, 90, 0.08);
 
@@ -40,6 +41,10 @@
   --subskill-blue-bg: linear-gradient(145deg, rgba(163, 202, 255, 0.74), rgba(95, 147, 227, 0.56));
   --subskill-blue-border: rgba(73, 112, 182, 0.66);
   --subskill-blue-text: #0f2f62;
+  --image-stage-bg: linear-gradient(155deg, #7d93b3 0%, #6f87ab 100%);
+  --image-stage-border: rgba(44, 73, 121, 0.34);
+  --image-stage-shadow: rgba(24, 44, 76, 0.24);
+  --image-stage-glow: rgba(255, 255, 255, 0.12);
   --scrollbar-size: 0px;
   --scrollbar-thumb: color-mix(in srgb, var(--text-muted) 46%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, var(--text-main) 58%, transparent);
@@ -67,6 +72,7 @@
 
   --surface-nav: rgba(16, 24, 39, 0.62);
   --surface-card: rgba(17, 27, 44, 0.66);
+  --surface-dropdown: rgba(15, 24, 38, 0.9);
   --surface-border: rgba(122, 146, 183, 0.28);
   --surface-shadow: rgba(0, 0, 0, 0.35);
 
@@ -96,6 +102,10 @@
   --subskill-blue-bg: linear-gradient(145deg, rgba(53, 84, 132, 0.75), rgba(36, 63, 103, 0.62));
   --subskill-blue-border: rgba(130, 177, 252, 0.55);
   --subskill-blue-text: #e1efff;
+  --image-stage-bg: linear-gradient(155deg, #243754 0%, #1d2f49 100%);
+  --image-stage-border: rgba(136, 170, 224, 0.32);
+  --image-stage-shadow: rgba(4, 8, 16, 0.5);
+  --image-stage-glow: rgba(148, 186, 245, 0.16);
   --scrollbar-thumb: color-mix(in srgb, #c9d8f6 42%, transparent);
   --scrollbar-thumb-hover: color-mix(in srgb, #e4eeff 56%, transparent);
 }

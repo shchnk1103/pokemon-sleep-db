@@ -4,6 +4,8 @@ import type {
   PokemonIngredientItem,
   PokemonIngredientLevel,
 } from '../types/pokemon'
+import type { AuthSession } from '../types/auth'
+import { isAuthExpiredError, notifyAuthSessionExpired } from './authSessionGuard'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -21,7 +23,7 @@ type PokemonBerryRef = {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim()
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
-const DEX_CACHE_KEY = 'pokesleep:dex-cache:v1'
+const DEX_CACHE_KEY = 'pokesleep:dex-cache:v2'
 const DEX_CACHE_TTL_MS = 1000 * 60 * 10
 
 let assetMapsPromise: Promise<{
@@ -34,6 +36,16 @@ let dexMemoryCache: { expiresAt: number; data: PokemonDexCard[] } | null = null
 type DexCachePayload = {
   expiresAt: number
   data: PokemonDexCard[]
+}
+
+type PokemonUpdateInput = {
+  id: number
+  name: string
+  type: string
+  talent: string
+  normalImageUrl: string
+  shinyImageUrl: string
+  mainSkillId: number | null
 }
 
 /**
@@ -142,6 +154,24 @@ function createHeaders() {
     apikey: SUPABASE_ANON_KEY ?? '',
     Authorization: `Bearer ${SUPABASE_ANON_KEY ?? ''}`,
   }
+}
+
+function createAuthHeaders(session: AuthSession) {
+  return {
+    apikey: SUPABASE_ANON_KEY ?? '',
+    Authorization: `Bearer ${session.accessToken}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+function parseErrorMessage(payload: unknown): string {
+  if (typeof payload === 'object' && payload !== null) {
+    const message = (payload as UnknownRecord).message
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim()
+    }
+  }
+  return 'Unknown PostgREST error'
 }
 
 async function fetchTable(table: string, select: string, orderBy?: string): Promise<UnknownRecord[]> {
@@ -351,6 +381,10 @@ function mapPokemonCard(
     name,
     type: pickString(row, ['type'], '未知'),
     talent: pickString(row, ['talent'], '未知'),
+    ingredientDropRate: parseNumber(row.ingredient_drop_rate),
+    skillTriggerRate: parseNumber(row.skill_trigger_rate),
+    skillPityTriggerRequiredAssists: parseNumber(row.skill_pity_trigger_required_assists),
+    assistInterval: parseNumber(row.assist_interval),
     normalImageUrl: pickString(row, ['img_url']),
     shinyImageUrl: pickString(row, ['shiny_img_url']),
     mainSkill,
@@ -397,7 +431,11 @@ export async function fetchDexEntries(): Promise<DexLoadResult> {
   try {
     const [maps, pokemonRows] = await Promise.all([
       getAssetMaps(),
-      fetchTable('pokemons', 'id,name,type,talent,img_url,shiny_img_url,main_skill_id,berries,ingredients', 'id.asc'),
+      fetchTable(
+        'pokemons',
+        'id,name,type,talent,img_url,shiny_img_url,main_skill_id,berries,ingredients,ingredient_drop_rate,skill_trigger_rate,skill_pity_trigger_required_assists,assist_interval',
+        'id.asc',
+      ),
     ])
 
     const data = pokemonRows
@@ -421,5 +459,75 @@ export async function fetchDexEntries(): Promise<DexLoadResult> {
       message: `加载真实图鉴失败：${errorMessage}`,
       total: 0,
     }
+  }
+}
+
+export function invalidateDexCache() {
+  dexMemoryCache = null
+
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(DEX_CACHE_KEY)
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+export async function updatePokemonEntry(session: AuthSession, input: PokemonUpdateInput): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const body = {
+    name: input.name.trim(),
+    type: input.type.trim(),
+    talent: input.talent.trim(),
+    img_url: input.normalImageUrl.trim(),
+    shiny_img_url: input.shinyImageUrl.trim(),
+    main_skill_id: input.mainSkillId,
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${input.id}`,
+  })
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/pokemons?${query.toString()}`, {
+    method: 'PATCH',
+    headers: createAuthHeaders(session),
+    body: JSON.stringify(body),
+  })
+
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    if (isAuthExpiredError({ status: response.status, payload })) {
+      notifyAuthSessionExpired()
+    }
+    throw new Error(`更新宝可梦失败：${parseErrorMessage(payload)}`)
+  }
+}
+
+export async function deletePokemonEntry(session: AuthSession, id: number): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${id}`,
+  })
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/pokemons?${query.toString()}`, {
+    method: 'DELETE',
+    headers: createAuthHeaders(session),
+  })
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    if (isAuthExpiredError({ status: response.status, payload })) {
+      notifyAuthSessionExpired()
+    }
+    throw new Error(`删除宝可梦失败：${parseErrorMessage(payload)}`)
   }
 }

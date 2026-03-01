@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 type AuthMode = 'login' | 'register'
+const REMEMBERED_EMAIL_KEY = 'pokesleep:remembered-email'
 
 export function AuthPage() {
   const { isAuthenticated, isReady, login, register } = useAuth()
@@ -10,8 +11,21 @@ export function AuthPage() {
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberEmail, setRememberEmail] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorText, setErrorText] = useState('')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const rememberedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY)?.trim() ?? ''
+    if (rememberedEmail) {
+      setEmail(rememberedEmail)
+      setRememberEmail(true)
+    }
+  }, [])
 
   if (isReady && isAuthenticated) {
     return <Navigate to="/profile" replace />
@@ -28,6 +42,13 @@ export function AuthPage() {
     try {
       if (mode === 'login') {
         await login({ email, password })
+        if (typeof window !== 'undefined') {
+          if (rememberEmail) {
+            window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim())
+          } else {
+            window.localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+          }
+        }
       } else {
         await register({ email, password, displayName })
       }
@@ -105,6 +126,18 @@ export function AuthPage() {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
+
+          {mode === 'login' && (
+            <label className="auth-remember">
+              <input
+                type="checkbox"
+                checked={rememberEmail}
+                onChange={(event) => setRememberEmail(event.target.checked)}
+                disabled={isSubmitting}
+              />
+              <span>记住邮箱账号</span>
+            </label>
+          )}
 
           {errorText && <p className="auth-error-text">{errorText}</p>}
 
