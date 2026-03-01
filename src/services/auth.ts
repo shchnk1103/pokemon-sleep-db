@@ -1,4 +1,5 @@
 import type { AppUserProfile, AuthSession, AuthUser } from '../types/auth'
+import { isAuthExpiredError, notifyAuthSessionExpired } from './authSessionGuard'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -90,6 +91,7 @@ function toProfile(record: UnknownRecord): AppUserProfile | null {
     authUserId,
     email,
     displayName: pickString(record, ['display_name'], email),
+    avatarUrl: pickString(record, ['avatar_url']),
     isAdmin: pickBoolean(record, ['is_admin'], false),
     createdAt: pickString(record, ['created_at']),
     updatedAt: pickString(record, ['updated_at']),
@@ -140,13 +142,19 @@ function authHeaders(accessToken: string) {
   }
 }
 
+function getOwnProfileSelectCandidates(): string[] {
+  return [
+    'id,auth_user_id,email,display_name,avatar_url,is_admin,created_at,updated_at',
+    'id,auth_user_id,email,display_name,avatar_url,created_at,updated_at',
+    'id,auth_user_id,email,display_name,is_admin,created_at,updated_at',
+    'id,auth_user_id,email,display_name,created_at,updated_at',
+  ]
+}
+
 async function selectOwnProfileRows(
   session: AuthSession,
-  includeAdminField: boolean,
+  selectFields: string,
 ): Promise<{ ok: boolean; rows: UnknownRecord[] }> {
-  const selectFields = includeAdminField
-    ? 'id,auth_user_id,email,display_name,is_admin,created_at,updated_at'
-    : 'id,auth_user_id,email,display_name,created_at,updated_at'
 
   const query = new URLSearchParams({
     select: selectFields,
@@ -158,6 +166,9 @@ async function selectOwnProfileRows(
     headers: authHeaders(session.accessToken),
   })
   const payload = await parseResponse(response)
+  if (!response.ok && isAuthExpiredError({ status: response.status, payload })) {
+    notifyAuthSessionExpired()
+  }
 
   return {
     ok: response.ok,
@@ -166,18 +177,15 @@ async function selectOwnProfileRows(
 }
 
 async function resolveOwnProfile(session: AuthSession): Promise<AppUserProfile | null> {
-  const primary = await selectOwnProfileRows(session, true)
-  if (primary.ok) {
-    return primary.rows[0] ? toProfile(primary.rows[0]) : null
+  for (const selectFields of getOwnProfileSelectCandidates()) {
+    const result = await selectOwnProfileRows(session, selectFields)
+    if (!result.ok) {
+      continue
+    }
+    return result.rows[0] ? toProfile(result.rows[0]) : null
   }
 
-  // Backward-compatible fallback when is_admin column is not ready yet.
-  const fallback = await selectOwnProfileRows(session, false)
-  if (!fallback.ok) {
-    return null
-  }
-
-  return fallback.rows[0] ? toProfile(fallback.rows[0]) : null
+  return null
 }
 
 async function ensureProfileExists(session: AuthSession, displayName?: string): Promise<AppUserProfile | null> {
@@ -203,6 +211,9 @@ async function ensureProfileExists(session: AuthSession, displayName?: string): 
     body: JSON.stringify(insertBody),
   })
   const insertPayload = await parseResponse(insertRes)
+  if (!insertRes.ok && isAuthExpiredError({ status: insertRes.status, payload: insertPayload })) {
+    notifyAuthSessionExpired()
+  }
   if (!insertRes.ok || !Array.isArray(insertPayload) || insertPayload.length === 0) {
     return null
   }
@@ -313,6 +324,9 @@ export async function loadPersistedSession(): Promise<{ session: AuthSession | n
   const payload = await parseResponse(response)
 
   if (!response.ok) {
+    if (isAuthExpiredError({ status: response.status, payload })) {
+      notifyAuthSessionExpired()
+    }
     saveSession(null)
     return { session: null, profile: null }
   }
@@ -334,7 +348,7 @@ export async function loadPersistedSession(): Promise<{ session: AuthSession | n
 
 export async function updateOwnProfile(
   session: AuthSession,
-  input: { displayName: string },
+  input: { displayName: string; avatarUrl?: string },
 ): Promise<AppUserProfile | null> {
   assertEnv()
 
@@ -343,51 +357,41 @@ export async function updateOwnProfile(
     throw new Error('昵称不能为空。')
   }
 
-  const query = new URLSearchParams({
-    auth_user_id: `eq.${session.user.id}`,
-    select: 'id,auth_user_id,email,display_name,is_admin,created_at,updated_at',
-  })
+  const updates: Record<string, string> = {
+    display_name: trimmedName,
+  }
+  if (input.avatarUrl !== undefined) {
+    updates.avatar_url = input.avatarUrl.trim()
+  }
 
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/users?${query.toString()}`, {
-    method: 'PATCH',
-    headers: {
-      ...authHeaders(session.accessToken),
-      Prefer: 'return=representation',
-    },
-    body: JSON.stringify({
-      display_name: trimmedName,
-    }),
-  })
-  const payload = await parseResponse(response)
-  if (!response.ok || !Array.isArray(payload) || payload.length === 0) {
-    // Backward-compatible fallback when users.is_admin column is not ready.
-    const fallbackQuery = new URLSearchParams({
+  let lastErrorMessage = '资料更新失败'
+  for (const selectFields of getOwnProfileSelectCandidates()) {
+    const query = new URLSearchParams({
       auth_user_id: `eq.${session.user.id}`,
-      select: 'id,auth_user_id,email,display_name,created_at,updated_at',
+      select: selectFields,
     })
-    const fallbackRes = await fetch(`${SUPABASE_URL}/rest/v1/users?${fallbackQuery.toString()}`, {
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/users?${query.toString()}`, {
       method: 'PATCH',
       headers: {
         ...authHeaders(session.accessToken),
         Prefer: 'return=representation',
       },
-      body: JSON.stringify({
-        display_name: trimmedName,
-      }),
+      body: JSON.stringify(updates),
     })
-    const fallbackPayload = await parseResponse(fallbackRes)
-    if (fallbackRes.ok && Array.isArray(fallbackPayload) && fallbackPayload.length > 0) {
-      return toProfile(fallbackPayload[0] as UnknownRecord)
+    const payload = await parseResponse(response)
+    if (!response.ok && isAuthExpiredError({ status: response.status, payload })) {
+      notifyAuthSessionExpired()
     }
-
-    const message =
-      typeof payload === 'object' && payload !== null
-        ? pickString(payload as UnknownRecord, ['message'], '资料更新失败')
-        : '资料更新失败'
-    throw new Error(message)
+    if (response.ok && Array.isArray(payload) && payload.length > 0) {
+      return toProfile(payload[0] as UnknownRecord)
+    }
+    if (typeof payload === 'object' && payload !== null) {
+      lastErrorMessage = pickString(payload as UnknownRecord, ['message'], lastErrorMessage)
+    }
   }
 
-  return toProfile(payload[0] as UnknownRecord)
+  throw new Error(lastErrorMessage)
 }
 
 export async function refreshOwnProfile(session: AuthSession): Promise<AppUserProfile | null> {

@@ -15,6 +15,7 @@ export type AppUserProfile = {
   authUserId: string
   email: string
   displayName: string
+  avatarUrl: string
   isAdmin: boolean
   createdAt: string
   updatedAt: string

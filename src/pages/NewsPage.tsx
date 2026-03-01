@@ -29,7 +29,6 @@ export function NewsPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [allNews, setAllNews] = useState<PokemonNews[]>([])
   const [activeCategory, setActiveCategory] = useState('全部')
-  const [isForceRefreshing, setIsForceRefreshing] = useState(false)
   const showToast = useToastStore((state) => state.showToast)
   const dismissToast = useToastStore((state) => state.dismissToast)
   const isRevalidatingRef = useRef(false)
@@ -109,16 +108,6 @@ export function NewsPage() {
     }
   }, [dismissToast, loadNews])
 
-  const handleForceRefresh = async () => {
-    if (isForceRefreshing) {
-      return
-    }
-
-    setIsForceRefreshing(true)
-    await loadNews({ force: true })
-    setIsForceRefreshing(false)
-  }
-
   const categories = useMemo(() => {
     const items = new Set<string>()
     for (const news of allNews) {
@@ -182,17 +171,6 @@ export function NewsPage() {
           </Link>
         ))}
       </div>
-
-      <button
-        type="button"
-        className="news-force-refresh-btn"
-        onClick={() => {
-          void handleForceRefresh()
-        }}
-        disabled={isForceRefreshing || loadState === 'loading'}
-      >
-        {isForceRefreshing || loadState === 'loading' ? '刷新中...' : '强制刷新'}
-      </button>
     </section>
   )
 }

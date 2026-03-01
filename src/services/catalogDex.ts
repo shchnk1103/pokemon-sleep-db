@@ -6,6 +6,8 @@ import type {
   MainSkillLevelsLoadResult,
   SubSkillEffectType,
 } from '../types/catalog'
+import type { AuthSession } from '../types/auth'
+import { isAuthExpiredError, notifyAuthSessionExpired } from './authSessionGuard'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -40,6 +42,20 @@ const tableCandidates: Record<AssetDexCatalog, string[]> = {
   ingredients: ['ingredients'],
   mainskills: ['mainskills', 'main_skills'],
   subskills: ['subskills', 'sub_skills'],
+}
+
+type AssetDexUpdatePayload = {
+  chineseName?: string
+  name?: string
+  attribute?: string
+  eneryMin?: number | null
+  eneryMax?: number | null
+  energy?: number | null
+  price?: number | null
+  description?: string
+  value?: string
+  effectType?: SubSkillEffectType
+  imageUrl?: string
 }
 
 function parseNumber(value: unknown): number | null {
@@ -102,6 +118,29 @@ function createHeaders() {
     apikey: SUPABASE_ANON_KEY ?? '',
     Authorization: `Bearer ${SUPABASE_ANON_KEY ?? ''}`,
   }
+}
+
+function createAuthHeaders(session: AuthSession) {
+  return {
+    apikey: SUPABASE_ANON_KEY ?? '',
+    Authorization: `Bearer ${session.accessToken}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+function parseErrorMessage(payload: unknown) {
+  if (typeof payload === 'object' && payload !== null) {
+    const message = (payload as UnknownRecord).message
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim()
+    }
+  }
+
+  return 'Unknown PostgREST error'
+}
+
+function primaryTableForCatalog(catalog: AssetDexCatalog) {
+  return tableCandidates[catalog][0]
 }
 
 async function fetchTableRows(table: string): Promise<UnknownRecord[]> {
@@ -387,5 +426,99 @@ export async function fetchMainSkillLevels(skillId: number): Promise<MainSkillLe
       message: `加载主技能等级数据失败：${message}`,
       total: 0,
     }
+  }
+}
+
+export function invalidateAssetDexCache(catalog: AssetDexCatalog) {
+  memoryCache.delete(catalog)
+
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(sessionKey(catalog))
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+export async function updateAssetDexEntry(
+  session: AuthSession,
+  catalog: Exclude<AssetDexCatalog, 'mainskills'>,
+  entryId: number,
+  payload: AssetDexUpdatePayload,
+): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const table = primaryTableForCatalog(catalog)
+  const body: UnknownRecord = {}
+
+  if (catalog === 'berries') {
+    body.chinese_name = payload.chineseName?.trim() ?? ''
+    body.attribute = payload.attribute?.trim() ?? ''
+    body.enery_min = payload.eneryMin ?? null
+    body.enery_max = payload.eneryMax ?? null
+    body.icon_url = payload.imageUrl?.trim() ?? ''
+  } else if (catalog === 'ingredients') {
+    body.chinese_name = payload.chineseName?.trim() ?? ''
+    body.energy = payload.energy ?? null
+    body.price = payload.price ?? null
+    body.icon_url = payload.imageUrl?.trim() ?? ''
+  } else {
+    body.name = payload.name?.trim() ?? ''
+    body.description = payload.description?.trim() ?? ''
+    body.value = payload.value?.trim() ?? ''
+    body.effect_type = payload.effectType ?? 'unknown'
+    body.image_url = payload.imageUrl?.trim() ?? ''
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${entryId}`,
+  })
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
+    method: 'PATCH',
+    headers: createAuthHeaders(session),
+    body: JSON.stringify(body),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  if (!response.ok) {
+    if (isAuthExpiredError({ status: response.status, payload: responseBody })) {
+      notifyAuthSessionExpired()
+    }
+
+    throw new Error(`更新失败：${parseErrorMessage(responseBody)}`)
+  }
+}
+
+export async function deleteAssetDexEntry(
+  session: AuthSession,
+  catalog: Exclude<AssetDexCatalog, 'mainskills'>,
+  entryId: number,
+): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const table = primaryTableForCatalog(catalog)
+  const query = new URLSearchParams({
+    id: `eq.${entryId}`,
+  })
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query.toString()}`, {
+    method: 'DELETE',
+    headers: createAuthHeaders(session),
+  })
+
+  if (!response.ok) {
+    const responseBody = await response.json().catch(() => null)
+    if (isAuthExpiredError({ status: response.status, payload: responseBody })) {
+      notifyAuthSessionExpired()
+    }
+    throw new Error(`删除失败：${parseErrorMessage(responseBody)}`)
   }
 }

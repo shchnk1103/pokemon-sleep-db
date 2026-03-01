@@ -32,6 +32,10 @@ export type PokemonDexCard = {
   name: string
   type: string
   talent: string
+  ingredientDropRate: number | null
+  skillTriggerRate: number | null
+  skillPityTriggerRequiredAssists: number | null
+  assistInterval: number | null
   normalImageUrl: string
   shinyImageUrl: string
   mainSkill: PokemonAssetItem | null

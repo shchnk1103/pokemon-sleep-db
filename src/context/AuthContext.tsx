@@ -7,6 +7,7 @@ import {
   signUpWithEmail,
   updateOwnProfile,
 } from '../services/auth'
+import { getAuthExpiredEventName } from '../services/authSessionGuard'
 import { useToastStore } from '../stores/toastStore'
 import type { AppUserProfile, AuthSession } from '../types/auth'
 
@@ -18,7 +19,7 @@ type AuthContextValue = {
   login: (input: { email: string; password: string }) => Promise<void>
   register: (input: { email: string; password: string; displayName?: string }) => Promise<void>
   logout: () => Promise<void>
-  saveProfile: (input: { displayName: string }) => Promise<void>
+  saveProfile: (input: { displayName: string; avatarUrl?: string }) => Promise<void>
   reloadProfile: () => Promise<void>
 }
 
@@ -64,6 +65,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       disposed = true
     }
   }, [showToast])
+
+  useEffect(() => {
+    const eventName = getAuthExpiredEventName()
+    const onSessionExpired = () => {
+      void signOut(session).catch(() => null)
+      setSession(null)
+      setProfile(null)
+      showToast({
+        id: 'auth-session-expired',
+        message: '登录状态已过期，请重新登录。',
+        variant: 'warning',
+        durationMs: 5200,
+      })
+    }
+
+    window.addEventListener(eventName, onSessionExpired)
+    return () => {
+      window.removeEventListener(eventName, onSessionExpired)
+    }
+  }, [session, showToast])
 
   const login: AuthContextValue['login'] = useCallback(async (input) => {
     const result = await signInWithEmail(input)

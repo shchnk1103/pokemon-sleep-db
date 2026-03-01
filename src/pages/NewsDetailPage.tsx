@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { MaterialIcon } from '../components/MaterialIcon'
 import { MarkdownRenderer } from '../components/MarkdownRenderer'
 import { fetchPokemonNews, fetchPokemonNewsById } from '../services/news'
 import { useToastStore } from '../stores/toastStore'
@@ -118,7 +119,8 @@ export function NewsDetailPage() {
       <section className="page">
         <p className="page-status warning">未找到对应新闻或加载失败。</p>
         <Link to="/news" className="button ghost news-back-btn">
-          返回新闻列表
+          <MaterialIcon name="chevron_left" className="button-icon" size={18} />
+          <span>返回新闻列表</span>
         </Link>
       </section>
     )
@@ -143,7 +145,8 @@ export function NewsDetailPage() {
       </header>
 
       <Link to="/news" className="button ghost news-back-btn">
-        返回新闻列表
+        <MaterialIcon name="chevron_left" className="button-icon" size={18} />
+        <span>返回新闻列表</span>
       </Link>
 
       <article className="dex-card news-detail-card">

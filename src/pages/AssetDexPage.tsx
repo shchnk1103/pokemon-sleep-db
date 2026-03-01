@@ -1,7 +1,16 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { CardAdminActions } from '../components/CardAdminActions'
+import { DexSearchDock } from '../components/DexSearchDock'
 import { useAuth } from '../context/AuthContext'
-import { fetchAssetDexEntries, fetchMainSkillLevels } from '../services/catalogDex'
+import { MaterialIcon } from '../components/MaterialIcon'
+import {
+  deleteAssetDexEntry,
+  fetchAssetDexEntries,
+  fetchMainSkillLevels,
+  invalidateAssetDexCache,
+} from '../services/catalogDex'
+import { deleteMainSkill } from '../services/mainSkillsAdmin'
 import { useToastStore } from '../stores/toastStore'
 import type { AssetDexCard, AssetDexCatalog, MainSkillLevel } from '../types/catalog'
 
@@ -22,6 +31,10 @@ type ExtraEffectsPopoverState = {
   left: number
   top: number
   placeAbove: boolean
+}
+
+function normalizeText(value: string): string {
+  return value.trim().toLowerCase()
 }
 
 function formatValue(value: number | string | null): string {
@@ -304,10 +317,16 @@ function AssetCard({
   item,
   catalog,
   onClick,
+  showAdminActions,
+  onEdit,
+  onDelete,
 }: {
   item: AssetDexCard
   catalog: AssetDexCatalog
   onClick?: (item: AssetDexCard) => void
+  showAdminActions?: boolean
+  onEdit?: (item: AssetDexCard) => void
+  onDelete?: (item: AssetDexCard) => void
 }) {
   const effectClass = catalog === 'subskills' ? `subskill-effect-${item.effectType}` : ''
   const altText = item.chineseName ?? item.name ?? `ID ${item.id}`
@@ -332,6 +351,16 @@ function AssetCard({
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
     >
+      {showAdminActions && (
+        <CardAdminActions
+          onEdit={() => onEdit?.(item)}
+          onDelete={() => onDelete?.(item)}
+          editLabel={`编辑 ID ${item.id}`}
+          deleteLabel={`删除 ID ${item.id}`}
+          className="asset-card-admin-actions"
+        />
+      )}
+
       <div className="asset-dex-image-wrap">
         {item.imageUrl ? (
           <img src={item.imageUrl} alt={altText} className="asset-dex-image" loading="lazy" />
@@ -346,7 +375,8 @@ function AssetCard({
 }
 
 export function AssetDexPage({ catalog, title, description }: AssetDexPageProps) {
-  const { profile } = useAuth()
+  const { profile, session } = useAuth()
+  const navigate = useNavigate()
   const [entries, setEntries] = useState<AssetDexCard[]>([])
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [selectedMainSkill, setSelectedMainSkill] = useState<AssetDexCard | null>(null)
@@ -354,6 +384,9 @@ export function AssetDexPage({ catalog, title, description }: AssetDexPageProps)
   const [modalLoadState, setModalLoadState] = useState<ModalLoadState>('idle')
   const [modalMessage, setModalMessage] = useState('')
   const [extraEffectsPopover, setExtraEffectsPopover] = useState<ExtraEffectsPopoverState | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<AssetDexCard | null>(null)
+  const [isDeletingEntry, setIsDeletingEntry] = useState(false)
   const modalLoadSeqRef = useRef(0)
   const closeExtraEffectsTimerRef = useRef<number | null>(null)
   const showToast = useToastStore((state) => state.showToast)
@@ -466,6 +499,77 @@ export function AssetDexPage({ catalog, title, description }: AssetDexPageProps)
     }
   }
 
+  const canManageCatalog = Boolean(profile?.isAdmin && session)
+
+  const filteredEntries = useMemo(() => {
+    const query = normalizeText(searchQuery)
+    if (!query) {
+      return entries
+    }
+
+    return entries.filter((item) => {
+      const source = [
+        String(item.id),
+        item.chineseName ?? '',
+        item.name ?? '',
+        item.attribute ?? '',
+        item.description ?? '',
+        item.value ?? '',
+        item.effectType ?? '',
+        item.imageUrl ?? '',
+      ]
+        .join(' ')
+        .toLowerCase()
+      return source.includes(query)
+    })
+  }, [entries, searchQuery])
+
+  const openCatalogEdit = (item: AssetDexCard) => {
+    if (catalog === 'mainskills') {
+      navigate(`/dex/main-skills/${item.id}/edit`)
+      return
+    }
+    const editPath = catalog === 'subskills' ? `/dex/sub-skills/${item.id}/edit` : `/dex/${catalog}/${item.id}/edit`
+    navigate(editPath)
+  }
+
+  const confirmDeleteEntry = async () => {
+    if (!pendingDeleteEntry || !session || isDeletingEntry) {
+      return
+    }
+
+    setIsDeletingEntry(true)
+    try {
+      if (catalog === 'mainskills') {
+        await deleteMainSkill(session, pendingDeleteEntry.id)
+      } else {
+        await deleteAssetDexEntry(session, catalog, pendingDeleteEntry.id)
+      }
+
+      invalidateAssetDexCache(catalog)
+      setEntries((current) => current.filter((entry) => entry.id !== pendingDeleteEntry.id))
+      if (selectedMainSkill?.id === pendingDeleteEntry.id) {
+        closeMainSkillModal()
+      }
+      setPendingDeleteEntry(null)
+      showToast({
+        id: `catalog-delete-success-${catalog}-${pendingDeleteEntry.id}`,
+        message: `已删除 ID ${pendingDeleteEntry.id}。`,
+        variant: 'success',
+        durationMs: 3200,
+      })
+    } catch (error) {
+      showToast({
+        id: `catalog-delete-failed-${catalog}-${pendingDeleteEntry.id}`,
+        message: error instanceof Error ? error.message : '删除失败，请稍后重试。',
+        variant: 'warning',
+        durationMs: 4200,
+      })
+    } finally {
+      setIsDeletingEntry(false)
+    }
+  }
+
   const closeExtraEffectsPopoverNow = () => {
     if (closeExtraEffectsTimerRef.current !== null) {
       window.clearTimeout(closeExtraEffectsTimerRef.current)
@@ -545,22 +649,76 @@ export function AssetDexPage({ catalog, title, description }: AssetDexPageProps)
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
-        {catalog === 'mainskills' && profile?.isAdmin && (
-          <Link to="/dex/main-skills/new" className="button primary asset-dex-add-btn">
-            add
+        {catalog === 'mainskills' && canManageCatalog && (
+          <Link to="/dex/main-skills/new" className="button primary asset-dex-add-btn" aria-label="新增主技能">
+            <MaterialIcon name="add" className="asset-dex-add-icon" size={22} />
           </Link>
         )}
       </header>
 
+      <DexSearchDock
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        enabled={loadState === 'ready'}
+        inputId={`asset-dex-search-${catalog}`}
+        ariaLabel={`搜索${title}`}
+        placeholder={loadState === 'ready' ? `搜索 ID、名称、描述或属性...` : '图鉴加载中，搜索暂不可用...'}
+      />
+
       {loadState === 'error' && <p className="page-status warning">加载失败，请检查 Supabase 配置后重试。</p>}
 
-      {loadState === 'ready' && entries.length === 0 && <p className="page-status info">暂无可展示的数据。</p>}
+      {loadState === 'ready' && filteredEntries.length === 0 && (
+        <p className="page-status info">{searchQuery.trim() ? '没有匹配到结果。' : '暂无可展示的数据。'}</p>
+      )}
 
       <div className="dex-grid asset-dex-grid">
-        {entries.map((entry) => (
-          <AssetCard key={`${catalog}-${entry.id}`} item={entry} catalog={catalog} onClick={openMainSkillModal} />
+        {filteredEntries.map((entry) => (
+          <AssetCard
+            key={`${catalog}-${entry.id}`}
+            item={entry}
+            catalog={catalog}
+            onClick={openMainSkillModal}
+            showAdminActions={canManageCatalog}
+            onEdit={openCatalogEdit}
+            onDelete={(item) => {
+              setPendingDeleteEntry(item)
+            }}
+          />
         ))}
       </div>
+
+      {canManageCatalog && pendingDeleteEntry && (
+        <div
+          className="asset-delete-confirm-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isDeletingEntry) {
+              setPendingDeleteEntry(null)
+            }
+          }}
+        >
+          <section className="asset-delete-confirm-panel" role="dialog" aria-modal="true" aria-label="删除图鉴项确认">
+            <p className="asset-delete-confirm-title">确认删除？</p>
+            <p className="asset-delete-confirm-text">
+              即将删除：
+              <strong>{pendingDeleteEntry.chineseName ?? pendingDeleteEntry.name ?? `ID ${pendingDeleteEntry.id}`}</strong>
+              。此操作不可撤销。
+            </p>
+            <div className="asset-delete-confirm-actions">
+              <button
+                type="button"
+                className="button ghost"
+                disabled={isDeletingEntry}
+                onClick={() => setPendingDeleteEntry(null)}
+              >
+                取消
+              </button>
+              <button type="button" className="button primary asset-delete-confirm-danger" disabled={isDeletingEntry} onClick={confirmDeleteEntry}>
+                {isDeletingEntry ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {catalog === 'mainskills' && selectedMainSkill && (
         <div
