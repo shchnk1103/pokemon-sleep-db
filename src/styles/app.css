@@ -826,6 +826,8 @@ h1 {
 
 .asset-dex-card:hover .card-admin-actions,
 .asset-dex-card:focus-within .card-admin-actions,
+.nature-card:hover .card-admin-actions,
+.nature-card:focus-within .card-admin-actions,
 .pokemon-card:hover .card-admin-actions,
 .pokemon-card:focus-within .card-admin-actions {
   opacity: 1;
@@ -1224,6 +1226,113 @@ h1 {
 .asset-delete-confirm-danger {
   background: #b33f4e;
   color: #fff;
+}
+
+.nature-dex-groups {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.95rem;
+}
+
+.nature-dex-group {
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--surface-card) 90%, var(--pill-active-bg) 10%);
+}
+
+.nature-dex-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.72rem;
+}
+
+.nature-dex-group-head h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.02rem;
+}
+
+.nature-dex-group-head span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.nature-dex-grid {
+  margin-top: 0;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.nature-card {
+  display: grid;
+  gap: 0.65rem;
+  position: relative;
+  background: linear-gradient(
+      176deg,
+      color-mix(in srgb, var(--pill-active-bg) 36%, transparent),
+      transparent 34%
+    ),
+    var(--surface-card);
+}
+
+.nature-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.nature-card-head h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.25rem;
+}
+
+.nature-card-id {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.nature-card-effect {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.45rem 0.58rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.nature-card-effect-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.nature-card-effect strong {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.nature-effect-icon {
+  flex-shrink: 0;
+}
+
+.nature-card-effect-up .nature-effect-icon {
+  color: #fc6f77;
+}
+
+.nature-card-effect-down .nature-effect-icon {
+  color: #5caaff;
 }
 
 .news-category-bar {
@@ -1723,6 +1832,102 @@ h1 {
   position: relative;
 }
 
+.calculate-nature-picker-wrap {
+  position: relative;
+}
+
+.calculate-nature-picker-trigger {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--surface-border) 80%, #86abdd 20%);
+  background: color-mix(in srgb, var(--surface-nav) 88%, #0b1730 12%);
+  color: var(--text-main);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.calculate-nature-picker-trigger:hover {
+  border-color: color-mix(in srgb, var(--button-ghost-border) 68%, transparent);
+}
+
+.calculate-nature-picker-trigger:focus-visible {
+  outline: none;
+  border-color: var(--button-ghost-border);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pill-active-bg) 34%, transparent);
+}
+
+.calculate-nature-picker-value {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.calculate-nature-picker-value strong {
+  font-size: 0.98rem;
+}
+
+.calculate-nature-picker-value em {
+  margin: 0;
+  font-style: normal;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.calculate-nature-picker-effects {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.calculate-nature-picker-effect {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.06rem;
+}
+
+.calculate-nature-picker-split {
+  color: var(--text-muted);
+}
+
+.calculate-nature-delete-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  transform: translateY(-50%);
+  width: 1.95rem;
+  height: 1.95rem;
+  border-radius: 999px;
+  border: 1px solid #b74453;
+  background: #b33f4e;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.calculate-nature-picker-wrap:hover .calculate-nature-delete-btn,
+.calculate-nature-picker-wrap:focus-within .calculate-nature-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.calculate-nature-delete-btn:hover {
+  transform: translateY(calc(-50% - 1px));
+  box-shadow: 0 5px 12px color-mix(in srgb, #9f3140 36%, transparent);
+}
+
+.calculate-nature-delete-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
 .calculate-pokemon-trigger {
   width: 100%;
   border: 1px solid var(--surface-border);
@@ -1896,6 +2101,77 @@ h1 {
   border-color: color-mix(in srgb, var(--surface-border) 62%, #8bb8ff 38%);
   background: linear-gradient(175deg, color-mix(in srgb, var(--surface-nav) 84%, #0c1f45 16%), var(--surface-card));
   box-shadow: 0 26px 54px color-mix(in srgb, #000 56%, transparent);
+}
+
+.calculate-nature-modal {
+  width: min(100%, 980px);
+}
+
+.calculate-nature-effect-panel {
+  margin-top: 0.72rem;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.calculate-nature-effect-row {
+  border: 1px solid color-mix(in srgb, var(--surface-border) 72%, #8bb8ff 28%);
+  border-radius: 12px;
+  padding: 0.56rem;
+  background: color-mix(in srgb, var(--surface-nav) 90%, #08152e 10%);
+  display: grid;
+  gap: 0.42rem;
+}
+
+.calculate-nature-effect-row p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+.calculate-nature-up-icon {
+  color: #fc6f77;
+}
+
+.calculate-nature-down-icon {
+  color: #5caaff;
+}
+
+.calculate-nature-effect-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.44rem;
+}
+
+.calculate-nature-effect-option {
+  border: 1px solid color-mix(in srgb, var(--surface-border) 80%, #7ea2d9 20%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-card) 86%, #09152d 14%);
+  color: var(--text-main);
+  padding: 0.28rem 0.7rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 140ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.calculate-nature-effect-option.active {
+  border-color: color-mix(in srgb, #7db5ff 72%, var(--button-ghost-border) 28%);
+  background: color-mix(in srgb, var(--pill-active-bg) 30%, var(--surface-card));
+  box-shadow: 0 0 0 2px color-mix(in srgb, #78b3ff 28%, transparent);
+}
+
+.calculate-nature-effect-option.dimmed {
+  opacity: 0.42;
+}
+
+.calculate-nature-effect-option.is-locked {
+  opacity: 0.3;
+  cursor: not-allowed;
+  border-color: color-mix(in srgb, var(--surface-border) 72%, #7d8594 28%);
+  background: color-mix(in srgb, var(--surface-nav) 70%, #8a8f99 30%);
 }
 
 .calculate-subskill-modal-header {

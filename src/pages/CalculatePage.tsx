@@ -1,22 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MaterialIcon } from '../components/MaterialIcon'
-import { fetchAssetDexEntries } from '../services/catalogDex'
+import { fetchAssetDexEntries, fetchNatureDexEntries } from '../services/catalogDex'
 import { fetchDexEntries } from '../services/pokedex'
 import { useToastStore } from '../stores/toastStore'
-import type { AssetDexCard } from '../types/catalog'
+import type { AssetDexCard, NatureDexCard } from '../types/catalog'
 import type { PokemonDexCard } from '../types/pokemon'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
 const SUBSKILL_LEVELS = [1, 25, 50, 75, 100] as const
 const SUBSKILL_EFFECT_ORDER = ['gold', 'blue', 'white'] as const
-const NATURE_OPTIONS = [
-  { id: 'hardy', label: '勤奋（占位）' },
-  { id: 'brave', label: '勇敢（占位）' },
-  { id: 'timid', label: '胆小（占位）' },
-  { id: 'calm', label: '冷静（占位）' },
-  { id: 'gentle', label: '温和（占位）' },
-] as const
+
+function normalizeNatureEffectName(value: string): string {
+  const text = value.trim()
+  if (!text) {
+    return ''
+  }
+  const lowered = text.toLowerCase()
+  if (lowered === 'none' || lowered === 'null') {
+    return ''
+  }
+  return text
+}
+
+function formatNatureEffectName(value: string): string {
+  const normalized = normalizeNatureEffectName(value)
+  return normalized || '-'
+}
+
+function getNatureLabel(nature: NatureDexCard): string {
+  return nature.name.trim() || `#${nature.id}`
+}
 
 function createEmptyLevelSelection(): Record<number, number | null> {
   return {
@@ -82,12 +96,16 @@ export function CalculatePage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [pokemons, setPokemons] = useState<PokemonDexCard[]>([])
   const [subSkills, setSubSkills] = useState<AssetDexCard[]>([])
+  const [natures, setNatures] = useState<NatureDexCard[]>([])
   const [isBuilderOpen, setIsBuilderOpen] = useState(false)
   const [selectedPokemonId, setSelectedPokemonId] = useState('')
   const [pokemonQuery, setPokemonQuery] = useState('')
   const [isPokemonDropdownOpen, setIsPokemonDropdownOpen] = useState(false)
   const [selectedNatureId, setSelectedNatureId] = useState('')
-  const [isNatureDropdownOpen, setIsNatureDropdownOpen] = useState(false)
+  const [isNatureModalOpen, setIsNatureModalOpen] = useState(false)
+  const [selectedNatureUpEffect, setSelectedNatureUpEffect] = useState('')
+  const [selectedNatureDownEffect, setSelectedNatureDownEffect] = useState('')
+  const [isNatureModalDirty, setIsNatureModalDirty] = useState(false)
   const [isSubSkillModalOpen, setIsSubSkillModalOpen] = useState(false)
   const [activeSubSkillLevel, setActiveSubSkillLevel] = useState<number>(SUBSKILL_LEVELS[0])
   const [addedConfigs, setAddedConfigs] = useState<AddedCalculationConfig[]>([])
@@ -96,7 +114,6 @@ export function CalculatePage() {
   )
   const slotClickTimerRef = useRef<number | null>(null)
   const pokemonSelectRef = useRef<HTMLDivElement | null>(null)
-  const natureSelectRef = useRef<HTMLDivElement | null>(null)
   const showToast = useToastStore((state) => state.showToast)
 
   useEffect(() => {
@@ -104,20 +121,21 @@ export function CalculatePage() {
 
     const run = async () => {
       setLoadState('loading')
-      const [pokemonResult, subSkillResult] = await Promise.all([
+      const [pokemonResult, subSkillResult, natureResult] = await Promise.all([
         fetchDexEntries(),
         fetchAssetDexEntries('subskills'),
+        fetchNatureDexEntries(),
       ])
 
       if (cancelled) {
         return
       }
 
-      if (pokemonResult.source !== 'supabase' || subSkillResult.source !== 'supabase') {
+      if (pokemonResult.source !== 'supabase' || subSkillResult.source !== 'supabase' || natureResult.source !== 'supabase') {
         setLoadState('error')
         showToast({
           id: 'calculate-load-failed',
-          message: pokemonResult.message ?? subSkillResult.message ?? '计算页面加载失败，请稍后重试。',
+          message: pokemonResult.message ?? subSkillResult.message ?? natureResult.message ?? '计算页面加载失败，请稍后重试。',
           variant: 'warning',
           durationMs: 5200,
         })
@@ -126,6 +144,7 @@ export function CalculatePage() {
 
       setPokemons([...pokemonResult.data].sort((a, b) => a.dexNo - b.dexNo))
       setSubSkills([...subSkillResult.data].sort((a, b) => a.id - b.id))
+      setNatures([...natureResult.data].sort((a, b) => a.id - b.id))
       setLoadState('ready')
     }
 
@@ -153,9 +172,25 @@ export function CalculatePage() {
   }, [selectedSubSkillsByLevel])
 
   const selectedNature = useMemo(
-    () => NATURE_OPTIONS.find((item) => item.id === selectedNatureId) ?? null,
-    [selectedNatureId],
+    () => natures.find((item) => String(item.id) === selectedNatureId) ?? null,
+    [natures, selectedNatureId],
   )
+
+  const natureUpEffects = useMemo(() => {
+    const unique = new Set<string>()
+    for (const nature of natures) {
+      unique.add(normalizeNatureEffectName(nature.upName))
+    }
+    return [...unique]
+  }, [natures])
+
+  const natureDownEffects = useMemo(() => {
+    const unique = new Set<string>()
+    for (const nature of natures) {
+      unique.add(normalizeNatureEffectName(nature.downName))
+    }
+    return [...unique]
+  }, [natures])
 
   const isSelectionComplete =
     Boolean(selectedPokemon) &&
@@ -194,6 +229,9 @@ export function CalculatePage() {
     setSelectedPokemonId('')
     setPokemonQuery('')
     setSelectedNatureId('')
+    setSelectedNatureUpEffect('')
+    setSelectedNatureDownEffect('')
+    setIsNatureModalDirty(false)
     setSelectedSubSkillsByLevel(createEmptyLevelSelection())
     setActiveSubSkillLevel(SUBSKILL_LEVELS[0])
   }
@@ -202,9 +240,6 @@ export function CalculatePage() {
     const handleClickOutside = (event: MouseEvent) => {
       if (!pokemonSelectRef.current?.contains(event.target as Node)) {
         setIsPokemonDropdownOpen(false)
-      }
-      if (!natureSelectRef.current?.contains(event.target as Node)) {
-        setIsNatureDropdownOpen(false)
       }
     }
 
@@ -222,20 +257,14 @@ export function CalculatePage() {
   }, [selectedPokemonId])
 
   useEffect(() => {
-    if (!selectedNatureId) {
-      return
-    }
-    setIsNatureDropdownOpen(false)
-  }, [selectedNatureId])
-
-  useEffect(() => {
-    if (!isSubSkillModalOpen) {
+    if (!isSubSkillModalOpen && !isNatureModalOpen) {
       return
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsSubSkillModalOpen(false)
+        setIsNatureModalOpen(false)
       }
     }
 
@@ -243,7 +272,61 @@ export function CalculatePage() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [isSubSkillModalOpen])
+  }, [isNatureModalOpen, isSubSkillModalOpen])
+
+  useEffect(() => {
+    if (!isNatureModalOpen) {
+      return
+    }
+    if (!selectedNature) {
+      return
+    }
+
+    setSelectedNatureUpEffect(normalizeNatureEffectName(selectedNature.upName))
+    setSelectedNatureDownEffect(normalizeNatureEffectName(selectedNature.downName))
+    setIsNatureModalDirty(false)
+  }, [isNatureModalOpen, selectedNature])
+
+  useEffect(() => {
+    if (!isNatureModalOpen) {
+      return
+    }
+    if (!isNatureModalDirty) {
+      return
+    }
+    if (!selectedNatureUpEffect && !selectedNatureDownEffect) {
+      return
+    }
+    if (!selectedNatureUpEffect || !selectedNatureDownEffect) {
+      return
+    }
+
+    const matched = natures.find(
+      (item) =>
+        normalizeNatureEffectName(item.upName) === selectedNatureUpEffect &&
+        normalizeNatureEffectName(item.downName) === selectedNatureDownEffect,
+    )
+
+    if (!matched) {
+      showToast({
+        id: 'calculate-nature-no-match',
+        message: '未匹配到对应性格，请调整积极/消极效果组合。',
+        variant: 'info',
+        durationMs: 2600,
+      })
+      return
+    }
+
+    setSelectedNatureId(String(matched.id))
+    setIsNatureModalDirty(false)
+    setIsNatureModalOpen(false)
+    showToast({
+      id: `calculate-nature-selected-${matched.id}`,
+      message: `已选择性格：${getNatureLabel(matched)}`,
+      variant: 'success',
+      durationMs: 1800,
+    })
+  }, [isNatureModalDirty, isNatureModalOpen, natures, selectedNatureDownEffect, selectedNatureUpEffect, showToast])
 
   const openSubSkillModal = (level: number) => {
     setActiveSubSkillLevel(level)
@@ -330,7 +413,7 @@ export function CalculatePage() {
       {
         id: `${selectedPokemon.dexNo}-${Date.now()}`,
         pokemon: selectedPokemon,
-        natureLabel: selectedNature.label,
+        natureLabel: getNatureLabel(selectedNature),
         subSkillsByLevel: { ...selectedSubSkillsByLevel },
       },
     ])
@@ -415,6 +498,9 @@ export function CalculatePage() {
                             event.stopPropagation()
                             setSelectedPokemonId(String(pokemon.dexNo))
                             setSelectedNatureId('')
+                            setSelectedNatureUpEffect('')
+                            setSelectedNatureDownEffect('')
+                            setIsNatureModalDirty(false)
                             setSelectedSubSkillsByLevel(createEmptyLevelSelection())
                             setActiveSubSkillLevel(SUBSKILL_LEVELS[0])
                             setIsPokemonDropdownOpen(false)
@@ -495,41 +581,57 @@ export function CalculatePage() {
 
             <div className="auth-field">
               <span>性格</span>
-              <div ref={natureSelectRef} className={`calculate-pokemon-select ${isNatureDropdownOpen ? 'is-open' : ''}`}>
+              <div className="calculate-nature-picker-wrap">
                 <button
                   type="button"
-                  className="calculate-pokemon-trigger"
-                  onClick={() => setIsNatureDropdownOpen((current) => !current)}
-                  aria-expanded={isNatureDropdownOpen}
-                  aria-controls="calculate-nature-dropdown"
+                  className="calculate-nature-picker-trigger"
+                  onClick={() => {
+                    setSelectedNatureUpEffect(selectedNature ? normalizeNatureEffectName(selectedNature.upName) : '')
+                    setSelectedNatureDownEffect(selectedNature ? normalizeNatureEffectName(selectedNature.downName) : '')
+                    setIsNatureModalDirty(false)
+                    setIsNatureModalOpen(true)
+                  }}
+                  aria-haspopup="dialog"
+                  aria-expanded={isNatureModalOpen}
                 >
-                  {selectedNature ? <span className="calculate-pokemon-option-value"><em>{selectedNature.label}</em></span> : <span className="calculate-pokemon-placeholder">请选择性格</span>}
+                  {selectedNature ? (
+                    <span className="calculate-nature-picker-value">
+                      <strong>{getNatureLabel(selectedNature)}</strong>
+                      <em className="calculate-nature-picker-effects">
+                        <span className="calculate-nature-picker-effect">
+                          <MaterialIcon name="arrow_drop_up" className="calculate-nature-up-icon" size={18} />
+                          <span>{formatNatureEffectName(selectedNature.upName)}</span>
+                        </span>
+                        <span className="calculate-nature-picker-split">/</span>
+                        <span className="calculate-nature-picker-effect">
+                          <MaterialIcon name="arrow_drop_down" className="calculate-nature-down-icon" size={18} />
+                          <span>{formatNatureEffectName(selectedNature.downName)}</span>
+                        </span>
+                      </em>
+                    </span>
+                  ) : (
+                    <span className="calculate-pokemon-placeholder">请选择性格（弹窗）</span>
+                  )}
                 </button>
-
-                {isNatureDropdownOpen && (
-                  <div id="calculate-nature-dropdown" className="calculate-pokemon-dropdown" role="listbox" aria-label="性格列表">
-                    <div className="calculate-pokemon-options">
-                      {NATURE_OPTIONS.map((option) => (
-                        <button
-                          key={`nature-${option.id}`}
-                          type="button"
-                          className={`calculate-pokemon-option ${selectedNatureId === option.id ? 'active' : ''}`}
-                          onClick={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            setSelectedNatureId(option.id)
-                            setIsNatureDropdownOpen(false)
-                          }}
-                          role="option"
-                          aria-selected={selectedNatureId === option.id}
-                        >
-                          <em>{option.label}</em>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                {selectedNature && (
+                  <button
+                    type="button"
+                    className="calculate-nature-delete-btn"
+                    aria-label="清空性格"
+                    title="清空性格"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setSelectedNatureId('')
+                      setSelectedNatureUpEffect('')
+                      setSelectedNatureDownEffect('')
+                      setIsNatureModalDirty(false)
+                    }}
+                  >
+                    <MaterialIcon name="delete" size={16} className="calculate-nature-delete-icon" />
+                  </button>
                 )}
               </div>
+              <small className="profile-edit-hint">选择积极与消极效果后将自动匹配唯一性格。</small>
             </div>
 
             <div className="calculate-actions">
@@ -583,6 +685,93 @@ export function CalculatePage() {
           </section>
         )}
       </article>
+
+      {isNatureModalOpen && (
+        <div className="asset-modal-backdrop calculate-subskill-modal-backdrop" onClick={() => setIsNatureModalOpen(false)}>
+          <section
+            className="asset-modal-panel calculate-subskill-modal calculate-nature-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="选择性格效果"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="asset-modal-header calculate-subskill-modal-header">
+              <p className="asset-modal-eyebrow">Nature</p>
+              <h3>选择性格效果</h3>
+            </header>
+
+            <div className="calculate-nature-effect-panel">
+              <div className="calculate-nature-effect-row">
+                <p>
+                  <MaterialIcon name="arrow_drop_up" className="calculate-nature-up-icon" size={18} />
+                  积极效果
+                </p>
+                <div className={`calculate-nature-effect-options ${selectedNatureUpEffect ? 'has-selection' : ''}`}>
+                  {natureUpEffects.map((effect) => {
+                    const lockedByDown = selectedNatureDownEffect === effect && effect !== ''
+                    return (
+                    <button
+                      key={`nature-up-${effect || 'none'}`}
+                      type="button"
+                      className={`calculate-nature-effect-option ${selectedNatureUpEffect === effect ? 'active' : ''} ${selectedNatureUpEffect && selectedNatureUpEffect !== effect ? 'dimmed' : ''} ${lockedByDown ? 'is-locked' : ''}`}
+                      onClick={() => {
+                        if (lockedByDown) {
+                          return
+                        }
+                        if (selectedNatureUpEffect !== effect) {
+                          setIsNatureModalDirty(true)
+                        }
+                        setSelectedNatureUpEffect(effect)
+                      }}
+                      disabled={lockedByDown}
+                      aria-disabled={lockedByDown}
+                    >
+                      {formatNatureEffectName(effect)}
+                    </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="calculate-nature-effect-row">
+                <p>
+                  <MaterialIcon name="arrow_drop_down" className="calculate-nature-down-icon" size={18} />
+                  消极效果
+                </p>
+                <div className={`calculate-nature-effect-options ${selectedNatureDownEffect ? 'has-selection' : ''}`}>
+                  {natureDownEffects.map((effect) => {
+                    const lockedByUp = selectedNatureUpEffect === effect && effect !== ''
+                    return (
+                    <button
+                      key={`nature-down-${effect || 'none'}`}
+                      type="button"
+                      className={`calculate-nature-effect-option ${selectedNatureDownEffect === effect ? 'active' : ''} ${selectedNatureDownEffect && selectedNatureDownEffect !== effect ? 'dimmed' : ''} ${lockedByUp ? 'is-locked' : ''}`}
+                      onClick={() => {
+                        if (lockedByUp) {
+                          return
+                        }
+                        if (selectedNatureDownEffect !== effect) {
+                          setIsNatureModalDirty(true)
+                        }
+                        setSelectedNatureDownEffect(effect)
+                      }}
+                      disabled={lockedByUp}
+                      aria-disabled={lockedByUp}
+                    >
+                      {formatNatureEffectName(effect)}
+                    </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <p className="calculate-subskill-modal-hint">
+                已选：{`↑ ${formatNatureEffectName(selectedNatureUpEffect)} / ↓ ${formatNatureEffectName(selectedNatureDownEffect)}`}
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
 
       {isSubSkillModalOpen && (
         <div className="asset-modal-backdrop calculate-subskill-modal-backdrop" onClick={() => setIsSubSkillModalOpen(false)}>

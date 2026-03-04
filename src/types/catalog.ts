@@ -36,3 +36,20 @@ export type MainSkillLevelsLoadResult = {
   message?: string
   total: number
 }
+
+export type NatureDexCard = {
+  id: number
+  name: string
+  belong: string
+  upName: string
+  upValue: string
+  downName: string
+  downValue: string
+}
+
+export type NatureDexLoadResult = {
+  data: NatureDexCard[]
+  source: 'supabase' | 'fallback'
+  message?: string
+  total: number
+}
