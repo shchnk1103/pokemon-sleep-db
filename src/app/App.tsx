@@ -15,6 +15,7 @@ import { DexPage } from '../pages/DexPage'
 import { HomePage } from '../pages/HomePage'
 import { NewsDetailPage } from '../pages/NewsDetailPage'
 import { NewsPage } from '../pages/NewsPage'
+import { NatureDexPage } from '../pages/NatureDexPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { MainSkillCreatePage } from '../pages/MainSkillCreatePage'
 import { UnifiedDexEditPage } from '../pages/UnifiedDexEditPage'
@@ -104,6 +105,7 @@ function AppLayout() {
                 <NavLink to="/dex/ingredients">食材图鉴</NavLink>
                 <NavLink to="/dex/main-skills">主技能图鉴</NavLink>
                 <NavLink to="/dex/sub-skills">副技能图鉴</NavLink>
+                <NavLink to="/dex/natures">性格图鉴</NavLink>
               </DropdownMenu>
 
               <NavLink to="/about">关于我</NavLink>
@@ -203,6 +205,9 @@ function AppLayout() {
               element={<AssetDexPage catalog="subskills" title="副技能图鉴" description="展示副技能图片与基础数值区间。" />}
             />
             <Route path="/dex/sub-skills/:entryId/edit" element={<UnifiedDexEditPage kind="subskills" />} />
+            <Route path="/dex/natures" element={<NatureDexPage />} />
+            <Route path="/dex/natures/new" element={<UnifiedDexEditPage kind="natures" mode="create" />} />
+            <Route path="/dex/natures/:entryId/edit" element={<UnifiedDexEditPage kind="natures" />} />
             <Route path="/dex/pokemon/:pokemonId/edit" element={<UnifiedDexEditPage kind="pokemon" />} />
             <Route path="/about" element={<AboutPage />} />
           </Routes>

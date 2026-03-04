@@ -4,6 +4,8 @@ import type {
   AssetDexLoadResult,
   MainSkillLevel,
   MainSkillLevelsLoadResult,
+  NatureDexCard,
+  NatureDexLoadResult,
   SubSkillEffectType,
 } from '../types/catalog'
 import type { AuthSession } from '../types/auth'
@@ -16,6 +18,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 const CATALOG_CACHE_TTL_MS = 1000 * 60 * 10
 const CATALOG_CACHE_KEY_PREFIX = 'pokesleep:catalog-cache:v1:'
 const MAIN_SKILL_LEVEL_CACHE_TTL_MS = 1000 * 60 * 10
+const NATURE_CACHE_KEY = 'pokesleep:nature-cache:v2'
 
 type CatalogCachePayload = {
   expiresAt: number
@@ -27,6 +30,11 @@ type MainSkillLevelCachePayload = {
   data: MainSkillLevel[]
 }
 
+type NatureCachePayload = {
+  expiresAt: number
+  data: NatureDexCard[]
+}
+
 type MainSkillLevelRow = {
   skillId: number | null
   level: number
@@ -36,6 +44,7 @@ type MainSkillLevelRow = {
 
 const memoryCache = new Map<AssetDexCatalog, CatalogCachePayload>()
 const mainSkillLevelMemoryCache = new Map<number, MainSkillLevelCachePayload>()
+let natureMemoryCache: NatureCachePayload | null = null
 
 const tableCandidates: Record<AssetDexCatalog, string[]> = {
   berries: ['berries'],
@@ -56,6 +65,16 @@ type AssetDexUpdatePayload = {
   value?: string
   effectType?: SubSkillEffectType
   imageUrl?: string
+}
+
+type NatureDexUpdatePayload = {
+  id?: number
+  name?: string
+  belong?: string
+  upName?: string
+  upValue?: string
+  downName?: string
+  downValue?: string
 }
 
 function parseNumber(value: unknown): number | null {
@@ -98,6 +117,56 @@ function pickNullableString(record: UnknownRecord, keys: string[]): string | nul
   }
 
   return null
+}
+
+function pickDisplayText(record: UnknownRecord, keys: string[], fallback = ''): string {
+  for (const key of keys) {
+    const value = record[key]
+
+    if (typeof value === 'string') {
+      return value.trim()
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value)
+    }
+
+    if (typeof value === 'boolean') {
+      return String(value)
+    }
+  }
+
+  return fallback
+}
+
+function toCanonicalKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function pickDisplayTextFlexible(record: UnknownRecord, keys: string[], fallback = ''): string {
+  const direct = pickDisplayText(record, keys, '__NO_DIRECT_MATCH__')
+  if (direct !== '__NO_DIRECT_MATCH__') {
+    return direct
+  }
+
+  const canonicalTargets = new Set(keys.map((key) => toCanonicalKey(key)))
+  for (const [key, value] of Object.entries(record)) {
+    if (!canonicalTargets.has(toCanonicalKey(key))) {
+      continue
+    }
+
+    if (typeof value === 'string') {
+      return value.trim()
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value)
+    }
+    if (typeof value === 'boolean') {
+      return String(value)
+    }
+  }
+
+  return fallback
 }
 
 function normalizeEffectType(value: unknown): SubSkillEffectType {
@@ -194,6 +263,23 @@ function mapCatalogRow(row: UnknownRecord): AssetDexCard | null {
   }
 }
 
+function mapNatureRow(row: UnknownRecord): NatureDexCard | null {
+  const id = parseNumber(row.id)
+  if (!id) {
+    return null
+  }
+
+  return {
+    id,
+    name: pickDisplayTextFlexible(row, ['name']),
+    belong: pickDisplayTextFlexible(row, ['belong']),
+    upName: pickDisplayTextFlexible(row, ['up_name', 'upName']),
+    upValue: pickDisplayTextFlexible(row, ['up_value', 'upValue']),
+    downName: pickDisplayTextFlexible(row, ['down_name', 'downName']),
+    downValue: pickDisplayTextFlexible(row, ['down_value', 'downValue']),
+  }
+}
+
 function mapMainSkillLevelRow(row: UnknownRecord): MainSkillLevelRow | null {
   const level = parseNumber(row.level)
   if (level === null) {
@@ -276,9 +362,71 @@ function writeCache(catalog: AssetDexCatalog, data: AssetDexCard[]) {
   }
 }
 
+function readNatureSessionCache(now: number): NatureDexCard[] | null {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return null
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(NATURE_CACHE_KEY)
+    if (!raw) {
+      return null
+    }
+
+    const payload = JSON.parse(raw) as NatureCachePayload
+    if (!payload || typeof payload.expiresAt !== 'number' || !Array.isArray(payload.data)) {
+      window.sessionStorage.removeItem(NATURE_CACHE_KEY)
+      return null
+    }
+
+    if (payload.expiresAt <= now) {
+      window.sessionStorage.removeItem(NATURE_CACHE_KEY)
+      return null
+    }
+
+    return payload.data
+  } catch {
+    return null
+  }
+}
+
+function writeNatureCache(data: NatureDexCard[]) {
+  const payload: NatureCachePayload = {
+    expiresAt: Date.now() + CATALOG_CACHE_TTL_MS,
+    data,
+  }
+
+  natureMemoryCache = payload
+
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(NATURE_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore storage failures to keep loading path stable.
+  }
+}
+
 async function resolveRows(catalog: AssetDexCatalog): Promise<UnknownRecord[]> {
   const errors: string[] = []
   for (const table of tableCandidates[catalog]) {
+    try {
+      return await fetchTableRows(table)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      errors.push(message)
+    }
+  }
+
+  throw new Error(errors.join('；'))
+}
+
+async function resolveNatureRows(): Promise<UnknownRecord[]> {
+  const errors: string[] = []
+  const tableCandidates = ['natures']
+  for (const table of tableCandidates) {
     try {
       return await fetchTableRows(table)
     } catch (error) {
@@ -429,6 +577,66 @@ export async function fetchMainSkillLevels(skillId: number): Promise<MainSkillLe
   }
 }
 
+export async function fetchNatureDexEntries(): Promise<NatureDexLoadResult> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return {
+      data: [],
+      source: 'fallback',
+      message: '未检测到 Supabase 环境变量，无法加载性格图鉴数据。',
+      total: 0,
+    }
+  }
+
+  const now = Date.now()
+  if (natureMemoryCache && natureMemoryCache.expiresAt > now) {
+    return {
+      data: natureMemoryCache.data,
+      source: 'supabase',
+      message: `已从缓存加载 ${natureMemoryCache.data.length} 条性格图鉴数据。`,
+      total: natureMemoryCache.data.length,
+    }
+  }
+
+  const cached = readNatureSessionCache(now)
+  if (cached) {
+    natureMemoryCache = {
+      expiresAt: now + CATALOG_CACHE_TTL_MS,
+      data: cached,
+    }
+    return {
+      data: cached,
+      source: 'supabase',
+      message: `已从缓存加载 ${cached.length} 条性格图鉴数据。`,
+      total: cached.length,
+    }
+  }
+
+  try {
+    const rows = await resolveNatureRows()
+    const data = rows
+      .map((row) => mapNatureRow(row))
+      .filter((entry): entry is NatureDexCard => entry !== null)
+      .sort((a, b) => a.id - b.id)
+
+    writeNatureCache(data)
+
+    return {
+      data,
+      source: 'supabase',
+      message: `已加载 ${data.length} 条性格图鉴数据。`,
+      total: data.length,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return {
+      data: [],
+      source: 'fallback',
+      message: `加载性格图鉴失败：${message}`,
+      total: 0,
+    }
+  }
+}
+
 export function invalidateAssetDexCache(catalog: AssetDexCatalog) {
   memoryCache.delete(catalog)
 
@@ -438,6 +646,20 @@ export function invalidateAssetDexCache(catalog: AssetDexCatalog) {
 
   try {
     window.sessionStorage.removeItem(sessionKey(catalog))
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+export function invalidateNatureDexCache() {
+  natureMemoryCache = null
+
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(NATURE_CACHE_KEY)
   } catch {
     // Ignore storage failures.
   }
@@ -521,4 +743,114 @@ export async function deleteAssetDexEntry(
     }
     throw new Error(`删除失败：${parseErrorMessage(responseBody)}`)
   }
+}
+
+export async function updateNatureDexEntry(
+  session: AuthSession,
+  entryId: number,
+  payload: NatureDexUpdatePayload,
+): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${entryId}`,
+  })
+
+  const body: UnknownRecord = {
+    name: payload.name?.trim() ?? '',
+    belong: payload.belong?.trim() ?? '',
+    up_name: payload.upName?.trim() ?? '',
+    up_value: payload.upValue?.trim() ?? '',
+    down_name: payload.downName?.trim() ?? '',
+    down_value: payload.downValue?.trim() ?? '',
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/natures?${query.toString()}`, {
+    method: 'PATCH',
+    headers: createAuthHeaders(session),
+    body: JSON.stringify(body),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  if (!response.ok) {
+    if (isAuthExpiredError({ status: response.status, payload: responseBody })) {
+      notifyAuthSessionExpired()
+    }
+
+    throw new Error(`更新失败：${parseErrorMessage(responseBody)}`)
+  }
+}
+
+export async function deleteNatureDexEntry(session: AuthSession, entryId: number): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const query = new URLSearchParams({
+    id: `eq.${entryId}`,
+  })
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/natures?${query.toString()}`, {
+    method: 'DELETE',
+    headers: createAuthHeaders(session),
+  })
+
+  if (!response.ok) {
+    const responseBody = await response.json().catch(() => null)
+    if (isAuthExpiredError({ status: response.status, payload: responseBody })) {
+      notifyAuthSessionExpired()
+    }
+    throw new Error(`删除失败：${parseErrorMessage(responseBody)}`)
+  }
+}
+
+export async function createNatureDexEntry(
+  session: AuthSession,
+  payload: NatureDexUpdatePayload,
+): Promise<number | null> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('缺少 Supabase 环境变量，请配置 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。')
+  }
+
+  const body: UnknownRecord = {
+    name: payload.name?.trim() ?? '',
+    belong: payload.belong?.trim() ?? '',
+    up_name: payload.upName?.trim() ?? '',
+    up_value: payload.upValue?.trim() ?? '',
+    down_name: payload.downName?.trim() ?? '',
+    down_value: payload.downValue?.trim() ?? '',
+  }
+  if (typeof payload.id === 'number' && Number.isInteger(payload.id) && payload.id > 0) {
+    body.id = payload.id
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/natures`, {
+    method: 'POST',
+    headers: {
+      ...createAuthHeaders(session),
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  if (!response.ok) {
+    if (isAuthExpiredError({ status: response.status, payload: responseBody })) {
+      notifyAuthSessionExpired()
+    }
+    throw new Error(`新增失败：${parseErrorMessage(responseBody)}`)
+  }
+
+  if (!Array.isArray(responseBody) || responseBody.length === 0) {
+    return null
+  }
+
+  const first = responseBody[0]
+  if (typeof first !== 'object' || first === null) {
+    return null
+  }
+
+  return parseNumber((first as UnknownRecord).id)
 }
