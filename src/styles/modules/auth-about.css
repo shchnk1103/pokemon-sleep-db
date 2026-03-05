@@ -1,0 +1,109 @@
+.about-card {
+  margin-top: 1rem;
+  padding: 1.2rem;
+}
+
+.about-card p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.about-card p + p {
+  margin-top: 0.9rem;
+}
+
+.auth-card {
+  margin-top: 1rem;
+  max-width: 520px;
+  padding: 1.05rem;
+}
+
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.auth-mode-switch button {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.44rem 0.66rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.auth-mode-switch button.active {
+  background: var(--pill-active-bg);
+  color: var(--text-main);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.auth-field {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.auth-field span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.auth-field input,
+.auth-field select {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  color: var(--text-main);
+  border-radius: 10px;
+  padding: 0.62rem 0.72rem;
+  font-size: 0.9rem;
+}
+
+.auth-field select {
+  font-family: inherit;
+}
+
+.auth-field input:focus,
+.auth-field select:focus {
+  outline: none;
+  border-color: var(--button-ghost-border);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pill-active-bg) 45%, transparent);
+}
+
+.auth-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  user-select: none;
+}
+
+.auth-remember input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--button-primary-bg);
+}
+
+.auth-error-text {
+  margin: 0.2rem 0 0;
+  color: var(--status-warning-text);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.auth-submit-btn {
+  margin-top: 0.4rem;
+  width: fit-content;
+}

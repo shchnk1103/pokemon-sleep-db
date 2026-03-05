@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ImageDropzoneField } from '../components/ImageDropzoneField'
 import { MaterialIcon } from '../components/MaterialIcon'
+import { AssetEditSection } from '../components/unified/AssetEditSection'
+import { NatureEditSection } from '../components/unified/NatureEditSection'
+import { PokemonEditSection } from '../components/unified/PokemonEditSection'
 import { useAuth } from '../context/AuthContext'
 import { useCreateIdAutofill } from '../hooks/useCreateIdAutofill'
 import {
@@ -203,84 +205,6 @@ function getMeta(kind: UnifiedDexEditKind, mode: 'edit' | 'create') {
         backTo: '/dex/sub-skills',
       }
   }
-}
-
-function renderAssetFields(kind: Exclude<UnifiedDexEditKind, 'pokemon'>, draft: AssetDraft, setDraft: (draft: AssetDraft) => void) {
-  return (
-    <>
-      {(kind === 'berries' || kind === 'ingredients') && (
-        <label className="auth-field">
-          <span>chinese_name</span>
-          <input type="text" value={draft.chineseName} onChange={(event) => setDraft({ ...draft, chineseName: event.target.value })} />
-        </label>
-      )}
-
-      {kind === 'subskills' && (
-        <label className="auth-field">
-          <span>name</span>
-          <input type="text" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-        </label>
-      )}
-
-      {kind === 'berries' && (
-        <>
-          <label className="auth-field">
-            <span>attribute</span>
-            <input type="text" value={draft.attribute} onChange={(event) => setDraft({ ...draft, attribute: event.target.value })} />
-          </label>
-          <label className="auth-field">
-            <span>enery_min</span>
-            <input type="text" inputMode="numeric" value={draft.eneryMin} onChange={(event) => setDraft({ ...draft, eneryMin: event.target.value })} />
-          </label>
-          <label className="auth-field">
-            <span>enery_max</span>
-            <input type="text" inputMode="numeric" value={draft.eneryMax} onChange={(event) => setDraft({ ...draft, eneryMax: event.target.value })} />
-          </label>
-        </>
-      )}
-
-      {kind === 'ingredients' && (
-        <>
-          <label className="auth-field">
-            <span>energy</span>
-            <input type="text" inputMode="numeric" value={draft.energy} onChange={(event) => setDraft({ ...draft, energy: event.target.value })} />
-          </label>
-          <label className="auth-field">
-            <span>price</span>
-            <input type="text" inputMode="numeric" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} />
-          </label>
-        </>
-      )}
-
-      {kind === 'subskills' && (
-        <>
-          <label className="auth-field dex-edit-full">
-            <span>description</span>
-            <textarea
-              className="mainskill-create-textarea"
-              rows={4}
-              value={draft.description}
-              onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-            />
-          </label>
-          <label className="auth-field">
-            <span>value</span>
-            <input type="text" value={draft.value} onChange={(event) => setDraft({ ...draft, value: event.target.value })} />
-          </label>
-          <label className="auth-field">
-            <span>effect_type</span>
-            <select value={draft.effectType} onChange={(event) => setDraft({ ...draft, effectType: event.target.value as SubSkillEffectType })}>
-              <option value="gold">gold</option>
-              <option value="white">white</option>
-              <option value="blue">blue</option>
-              <option value="unknown">unknown</option>
-            </select>
-          </label>
-        </>
-      )}
-
-    </>
-  )
 }
 
 export function UnifiedDexEditPage({ kind, mode = 'edit' }: { kind: UnifiedDexEditKind; mode?: 'edit' | 'create' }) {
@@ -677,179 +601,55 @@ export function UnifiedDexEditPage({ kind, mode = 'edit' }: { kind: UnifiedDexEd
           {loadState === 'error' && <p className="page-status warning">{isCreateMode ? '创建表单初始化失败。' : '读取编辑数据失败或记录不存在。'}</p>}
 
           {loadState === 'ready' && kind === 'pokemon' && pokemonDraft && (
-            <div className="dex-edit-grid">
-              <label className="auth-field">
-                <span>id</span>
-                <input type="text" value={String(pokemonDraft.id)} disabled />
-              </label>
-              <label className="auth-field">
-                <span>name</span>
-                <input type="text" value={pokemonDraft.name} onChange={(event) => setPokemonDraft({ ...pokemonDraft, name: event.target.value })} />
-              </label>
-              <label className="auth-field">
-                <span>type</span>
-                <input type="text" value={pokemonDraft.type} onChange={(event) => setPokemonDraft({ ...pokemonDraft, type: event.target.value })} />
-              </label>
-              <label className="auth-field">
-                <span>talent</span>
-                <input
-                  type="text"
-                  value={pokemonDraft.talent}
-                  onChange={(event) => setPokemonDraft({ ...pokemonDraft, talent: event.target.value })}
-                />
-              </label>
-              <div className="dex-edit-full dex-edit-image-pair">
-                <ImageDropzoneField
-                  label="普通图片"
-                  imageUrl={pokemonDraft.normalImageUrl}
-                  file={pokemonNormalImageFile}
-                  disabled={isSubmitting}
-                  onPickFile={(file) => {
-                    setPokemonNormalImageFile(file)
-                  }}
-                  onClear={() => {
-                    setPokemonNormalImageFile(null)
-                    setPokemonDraft({ ...pokemonDraft, normalImageUrl: '' })
-                  }}
-                />
-                <ImageDropzoneField
-                  label="闪光图片"
-                  imageUrl={pokemonDraft.shinyImageUrl}
-                  file={pokemonShinyImageFile}
-                  disabled={isSubmitting}
-                  onPickFile={(file) => {
-                    setPokemonShinyImageFile(file)
-                  }}
-                  onClear={() => {
-                    setPokemonShinyImageFile(null)
-                    setPokemonDraft({ ...pokemonDraft, shinyImageUrl: '' })
-                  }}
-                />
-              </div>
-              <label className="auth-field">
-                <span>main_skill_id（可留空）</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={pokemonDraft.mainSkillId}
-                  onChange={(event) => setPokemonDraft({ ...pokemonDraft, mainSkillId: event.target.value.replace(/[^\d]/g, '') })}
-                />
-              </label>
-            </div>
+            <PokemonEditSection
+              pokemonDraft={pokemonDraft}
+              pokemonNormalImageFile={pokemonNormalImageFile}
+              pokemonShinyImageFile={pokemonShinyImageFile}
+              isSubmitting={isSubmitting}
+              onChangeDraft={(next) => setPokemonDraft(next)}
+              onPickNormalImage={setPokemonNormalImageFile}
+              onPickShinyImage={setPokemonShinyImageFile}
+              onClearNormalImage={() => {
+                setPokemonNormalImageFile(null)
+                setPokemonDraft({ ...pokemonDraft, normalImageUrl: '' })
+              }}
+              onClearShinyImage={() => {
+                setPokemonShinyImageFile(null)
+                setPokemonDraft({ ...pokemonDraft, shinyImageUrl: '' })
+              }}
+            />
           )}
 
           {loadState === 'ready' && kind === 'natures' && natureDraft && (
-            <div className="dex-edit-grid">
-              <label className="auth-field">
-                <span>id</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={isCreateMode ? manualNatureId : String(natureDraft.id)}
-                  onChange={(event) => {
-                    if (!isCreateMode) {
-                      return
-                    }
-                    const nextValue = event.target.value.replace(/[^\d]/g, '')
-                    setManualNatureId(nextValue)
-                    natureCreateAutofill.reset()
-                  }}
-                  placeholder={isCreateMode ? '例如: 1' : undefined}
-                  disabled={!isCreateMode || isSubmitting}
-                />
-              </label>
-              <label className="auth-field">
-                <span>name</span>
-                <input
-                  type="text"
-                  value={natureDraft.name}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, name: true }))
-                    setNatureDraft({ ...natureDraft, name: event.target.value })
-                  }}
-                />
-              </label>
-              <label className="auth-field">
-                <span>belong</span>
-                <input
-                  type="text"
-                  value={natureDraft.belong}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, belong: true }))
-                    setNatureDraft({ ...natureDraft, belong: event.target.value })
-                  }}
-                />
-              </label>
-              <label className="auth-field">
-                <span>up_name</span>
-                <input
-                  type="text"
-                  value={natureDraft.upName}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, upName: true }))
-                    setNatureDraft({ ...natureDraft, upName: event.target.value })
-                  }}
-                />
-              </label>
-              <label className="auth-field">
-                <span>up_value</span>
-                <input
-                  type="text"
-                  value={natureDraft.upValue}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, upValue: true }))
-                    setNatureDraft({ ...natureDraft, upValue: event.target.value })
-                  }}
-                />
-              </label>
-              <label className="auth-field">
-                <span>down_name</span>
-                <input
-                  type="text"
-                  value={natureDraft.downName}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, downName: true }))
-                    setNatureDraft({ ...natureDraft, downName: event.target.value })
-                  }}
-                />
-              </label>
-              <label className="auth-field">
-                <span>down_value</span>
-                <input
-                  type="text"
-                  value={natureDraft.downValue}
-                  onChange={(event) => {
-                    setNatureTouched((current) => ({ ...current, downValue: true }))
-                    setNatureDraft({ ...natureDraft, downValue: event.target.value })
-                  }}
-                />
-              </label>
-            </div>
+            <NatureEditSection
+              natureDraft={natureDraft}
+              isCreateMode={isCreateMode}
+              manualNatureId={manualNatureId}
+              isSubmitting={isSubmitting}
+              onManualNatureIdChange={(nextValue) => {
+                setManualNatureId(nextValue)
+                natureCreateAutofill.reset()
+              }}
+              onFieldTouch={(field) => {
+                setNatureTouched((current) => ({ ...current, [field]: true }))
+              }}
+              onChangeDraft={(next) => setNatureDraft(next)}
+            />
           )}
 
           {loadState === 'ready' && kind !== 'pokemon' && kind !== 'natures' && assetDraft && (
-            <div className="dex-edit-grid">
-              <label className="auth-field">
-                <span>id</span>
-                <input type="text" value={String(assetDraft.id)} disabled />
-              </label>
-              {renderAssetFields(kind, assetDraft, setAssetDraft)}
-              <div className="dex-edit-full">
-                <ImageDropzoneField
-                  label="图片"
-                  imageUrl={assetDraft.imageUrl}
-                  file={assetImageFile}
-                  disabled={isSubmitting}
-                  onPickFile={(file) => {
-                    setAssetImageFile(file)
-                  }}
-                  onClear={() => {
-                    setAssetImageFile(null)
-                    setAssetDraft({ ...assetDraft, imageUrl: '' })
-                  }}
-                />
-              </div>
-            </div>
+            <AssetEditSection
+              kind={kind}
+              assetDraft={assetDraft}
+              assetImageFile={assetImageFile}
+              isSubmitting={isSubmitting}
+              onChangeDraft={(next) => setAssetDraft(next)}
+              onPickImage={setAssetImageFile}
+              onClearImage={() => {
+                setAssetImageFile(null)
+                setAssetDraft({ ...assetDraft, imageUrl: '' })
+              }}
+            />
           )}
         </form>
       </article>

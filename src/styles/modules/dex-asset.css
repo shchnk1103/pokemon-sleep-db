@@ -1,0 +1,912 @@
+.dex-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.dex-card {
+  padding: 1rem;
+}
+
+.pokemon-dex-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.pokemon-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.pokemon-card-clickable {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 200ms ease;
+}
+
+.pokemon-card-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px var(--surface-shadow);
+}
+
+.pokemon-card-clickable:focus-visible {
+  outline: 2px solid var(--status-info-border);
+  outline-offset: 2px;
+}
+
+.pokemon-image-wrap {
+  position: relative;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 18%, var(--pill-active-bg) 0%, transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+  border: 1px solid var(--surface-border);
+  overflow: hidden;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pokemon-image {
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  padding: 0.6rem;
+  transition: opacity 220ms ease;
+}
+
+.pokemon-image-fallback {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.shiny-segment {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  border-radius: 999px;
+  padding: 0.2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-nav);
+  z-index: 2;
+  transition: opacity 180ms ease;
+  width: 126px;
+  min-height: 34px;
+  align-items: center;
+}
+
+.shiny-segment-indicator {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: calc(50% - 0.2rem);
+  height: calc(100% - 0.4rem);
+  border-radius: 999px;
+  background: var(--pill-active-bg);
+  transition: transform 220ms ease;
+  pointer-events: none;
+}
+
+.shiny-segment.mode-shiny .shiny-segment-indicator {
+  transform: translateX(100%);
+}
+
+.shiny-segment button {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  width: 100%;
+  height: 100%;
+  font-size: 0.73rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.shiny-segment button.active {
+  color: var(--text-main);
+}
+
+.shiny-segment button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.shiny-segment.is-loading {
+  opacity: 0.88;
+}
+
+.pokemon-image-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: rgba(18, 31, 53, 0.2);
+  color: #ffffff;
+  backdrop-filter: blur(2px);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dex-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.dex-head h3 {
+  margin: 0;
+}
+
+.dex-no {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+}
+
+.dex-card dl {
+  margin: 0.8rem 0 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dex-card dl div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.dex-card dt {
+  color: var(--text-muted);
+}
+
+.dex-card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.dex-card p {
+  margin: 0.85rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.pokemon-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.pokemon-meta div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.pokemon-meta dt {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.pokemon-meta dd {
+  margin: 0;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.asset-section {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.asset-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.asset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-nav);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem 0.2rem 0.24rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.asset-chip img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.asset-chip em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.main-skill-chip {
+  width: fit-content;
+}
+
+.asset-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--pill-active-bg);
+}
+
+.asset-empty {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.ingredient-level-list {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.ingredient-level-row {
+  border: 1px dashed var(--surface-border);
+  border-radius: 12px;
+  padding: 0.45rem 0.55rem;
+  background: color-mix(in srgb, var(--surface-nav) 75%, transparent);
+}
+
+.asset-dex-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.asset-dex-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.asset-dex-add-btn {
+  margin-top: 1.35rem;
+  width: 2.45rem;
+  height: 2.45rem;
+  min-width: 2.45rem;
+  padding: 0;
+}
+
+.asset-dex-add-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.asset-dex-card {
+  display: grid;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.asset-dex-card-clickable {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 200ms ease;
+}
+
+.asset-dex-card-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px var(--surface-shadow);
+}
+
+.asset-dex-card-clickable:focus-visible {
+  outline: 2px solid var(--status-info-border);
+  outline-offset: 2px;
+}
+
+.icon-actions-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-card) 90%, #d7e4f8 10%);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 68%, #b6c9e7 32%);
+  box-shadow: 0 8px 16px color-mix(in srgb, #1f3863 18%, transparent);
+}
+
+.icon-actions-btn {
+  border: 1px solid color-mix(in srgb, var(--surface-border) 74%, #2e4f8f 26%);
+  background: #fff;
+  color: #1f3660;
+  border-radius: 999px;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.icon-actions-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px color-mix(in srgb, #24426e 24%, transparent);
+}
+
+.icon-actions-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.icon-actions-btn.danger {
+  color: #fff;
+  background: #b33f4e;
+  border-color: #9f3140;
+}
+
+.icon-actions-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.card-admin-actions,
+.asset-card-admin-actions,
+.pokemon-card-admin-actions {
+  position: absolute;
+  top: 0.48rem;
+  left: 0.48rem;
+  display: flex;
+  gap: 0.34rem;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 3;
+}
+
+.asset-dex-card:hover .card-admin-actions,
+.asset-dex-card:focus-within .card-admin-actions,
+.nature-card:hover .card-admin-actions,
+.nature-card:focus-within .card-admin-actions,
+.pokemon-card:hover .card-admin-actions,
+.pokemon-card:focus-within .card-admin-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.asset-dex-card.subskill-effect-gold {
+  background: var(--subskill-gold-bg);
+  border-color: var(--subskill-gold-border);
+}
+
+.asset-dex-card.subskill-effect-gold .asset-dex-meta dt,
+.asset-dex-card.subskill-effect-gold .asset-dex-meta dd,
+.asset-dex-card.subskill-effect-gold .asset-dex-image-fallback {
+  color: var(--subskill-gold-text);
+}
+
+.asset-dex-card.subskill-effect-white {
+  background: var(--subskill-white-bg);
+  border-color: var(--subskill-white-border);
+}
+
+.asset-dex-card.subskill-effect-white .asset-dex-meta dt,
+.asset-dex-card.subskill-effect-white .asset-dex-meta dd,
+.asset-dex-card.subskill-effect-white .asset-dex-image-fallback {
+  color: var(--subskill-white-text);
+}
+
+.asset-dex-card.subskill-effect-blue {
+  background: var(--subskill-blue-bg);
+  border-color: var(--subskill-blue-border);
+}
+
+.asset-dex-card.subskill-effect-blue .asset-dex-meta dt,
+.asset-dex-card.subskill-effect-blue .asset-dex-meta dd,
+.asset-dex-card.subskill-effect-blue .asset-dex-image-fallback {
+  color: var(--subskill-blue-text);
+}
+
+.asset-dex-image-wrap {
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 18%, var(--pill-active-bg) 0%, transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+  border: 1px solid var(--surface-border);
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+:root:not([data-theme='dark']) .asset-dex-image-wrap {
+  background: radial-gradient(circle at 50% 18%, rgba(163, 198, 255, 0.3) 0%, transparent 56%),
+    linear-gradient(180deg, rgba(18, 42, 76, 0.44), rgba(20, 38, 68, 0.36));
+}
+
+.asset-dex-image {
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  padding: 0.55rem;
+}
+
+.asset-dex-image-fallback {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.asset-dex-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.asset-dex-meta div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.asset-dex-meta dt {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.asset-dex-meta dd {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.pokemon-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 26%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 40;
+}
+
+.pokemon-modal-panel {
+  width: min(100%, 700px);
+  max-height: min(86vh, 760px);
+  overflow: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--pill-active-bg) 42%, transparent),
+      transparent 30%
+    ),
+    var(--surface-card);
+  box-shadow: 0 20px 42px var(--surface-shadow);
+  padding: 1rem 1rem 1.15rem;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.pokemon-modal-header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.pokemon-modal-eyebrow {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pokemon-modal-header h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.1rem;
+}
+
+.pokemon-modal-meta {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  background: color-mix(in srgb, var(--surface-nav) 80%, transparent);
+}
+
+.pokemon-modal-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.pokemon-modal-meta dt {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.pokemon-modal-meta dd {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.pokemon-modal-section {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.62rem 0.7rem;
+  background: color-mix(in srgb, var(--surface-nav) 84%, transparent);
+}
+
+.asset-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 26%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 40;
+}
+
+.asset-modal-panel {
+  width: min(100%, 620px);
+  max-height: min(84vh, 720px);
+  overflow: auto;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--pill-active-bg) 46%, transparent),
+      transparent 30%
+    ),
+    var(--surface-card);
+  box-shadow: 0 20px 42px var(--surface-shadow);
+  padding: 1rem 1rem 1.15rem;
+}
+
+.asset-modal-header {
+  display: grid;
+  align-items: start;
+  gap: 0.45rem;
+}
+
+.asset-modal-eyebrow {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.asset-modal-header h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.1rem;
+}
+
+.asset-modal-table-wrap {
+  margin-top: 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.asset-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.asset-modal-table th,
+.asset-modal-table td {
+  text-align: left;
+  padding: 0.58rem 0.72rem;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 0.86rem;
+}
+
+.asset-modal-table th {
+  background: color-mix(in srgb, var(--surface-nav) 84%, transparent);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.asset-modal-table td {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.asset-modal-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.asset-level-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.46rem;
+}
+
+.asset-extra-effects-trigger {
+  border: 1px solid var(--surface-border);
+  padding: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: var(--pill-active-bg);
+  color: var(--text-main);
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  line-height: 1;
+}
+
+.asset-extra-effects-trigger:focus-visible {
+  outline: 2px solid var(--status-info-border);
+  outline-offset: 2px;
+}
+
+.asset-extra-effects-popover-floating {
+  position: fixed;
+  min-width: 240px;
+  max-width: min(86vw, 640px);
+  max-height: min(56vh, 420px);
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  box-shadow: 0 10px 24px var(--surface-shadow);
+  padding: 0.46rem;
+  z-index: 45;
+}
+
+.asset-extra-effects-popover-floating.below {
+  transform: translateX(-50%);
+}
+
+.asset-extra-effects-popover-floating.above {
+  transform: translate(-50%, -100%);
+}
+
+.asset-extra-effects-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.asset-extra-effects-table-wrap {
+  overflow: auto;
+}
+
+.asset-extra-effects-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.asset-extra-effects-table th,
+.asset-extra-effects-table td {
+  text-align: left;
+  white-space: nowrap;
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: 0.76rem;
+}
+
+.asset-extra-effects-table th {
+  background: color-mix(in srgb, var(--surface-nav) 86%, transparent);
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.asset-extra-effects-table td {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.asset-extra-effects-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.asset-delete-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, #000 24%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.asset-delete-confirm-panel {
+  width: min(100%, 460px);
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-card);
+  box-shadow: 0 20px 40px var(--surface-shadow);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.asset-delete-confirm-title {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.asset-delete-confirm-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.asset-delete-confirm-text strong {
+  color: var(--text-main);
+  margin-left: 0.3rem;
+}
+
+.asset-delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.asset-delete-confirm-danger {
+  background: #b33f4e;
+  color: #fff;
+}
+
+.nature-dex-groups {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.95rem;
+}
+
+.nature-dex-group {
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--surface-card) 90%, var(--pill-active-bg) 10%);
+}
+
+.nature-dex-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.72rem;
+}
+
+.nature-dex-group-head h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.02rem;
+}
+
+.nature-dex-group-head span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.nature-dex-grid {
+  margin-top: 0;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.nature-card {
+  display: grid;
+  gap: 0.65rem;
+  position: relative;
+  background: linear-gradient(
+      176deg,
+      color-mix(in srgb, var(--pill-active-bg) 36%, transparent),
+      transparent 34%
+    ),
+    var(--surface-card);
+}
+
+.nature-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.nature-card-head h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.25rem;
+}
+
+.nature-card-id {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.nature-card-effect {
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 0.45rem 0.58rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.nature-card-effect-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.nature-card-effect strong {
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.nature-effect-icon {
+  flex-shrink: 0;
+}
+
+.nature-card-effect-up .nature-effect-icon {
+  color: #fc6f77;
+}
+
+.nature-card-effect-down .nature-effect-icon {
+  color: #5caaff;
+}
+

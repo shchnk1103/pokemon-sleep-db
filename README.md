@@ -73,14 +73,25 @@ bun run lint     # 运行 ESLint
 ```text
 src/
   app/            # 应用壳、路由、导航
-  components/     # 通用组件（主题切换、全局消息等）
+  components/     # 通用组件（主题切换、全局消息、弹窗壳、确认弹窗等）
+    asset/        # 资产类页面复用组件（如主技能等级弹窗）
+    calculate/    # 计算页复用组件（配置表单、子弹窗、已添加列表）
+    unified/      # 统一编辑页复用组件（Pokemon/Nature/Asset 编辑区块）
   hooks/          # 主题等自定义 hooks
   pages/          # 页面（首页、图鉴、关于）
   services/       # Supabase 数据访问与缓存逻辑
   stores/         # Zustand 状态管理
-  styles/         # 全局样式
+  styles/         # 样式入口与模块化样式
+    modules/      # 按职责拆分的样式模块（base/layout/page/system）
   types/          # 类型定义
 ```
+
+## 样式与复用约定
+
+- `src/styles/app.css` 作为样式聚合入口，只做 `@import`，不承载大段业务样式。
+- 页面相关样式优先放入 `src/styles/modules/*.css`，按职责分层，避免单文件过大。
+- 弹窗结构优先复用 `ModalShell`，删除确认优先复用 `DeleteConfirmDialog`。
+- 卡片操作按钮（编辑/复制/删除）统一使用 `CardAdminActions` / `IconEditDeletePill`，避免重复实现。
 
 ## 部署建议
 
