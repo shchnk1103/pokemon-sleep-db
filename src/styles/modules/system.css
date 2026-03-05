@@ -1,0 +1,248 @@
+.page-status {
+  margin: 0.85rem 0 0;
+  padding: 0.62rem 0.78rem;
+  border-radius: 12px;
+  font-size: 0.86rem;
+  border: 1px solid transparent;
+}
+
+.page-status.info {
+  color: var(--status-info-text);
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
+}
+
+.page-status.success {
+  color: var(--status-success-text);
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+}
+
+.page-status.warning {
+  color: var(--status-warning-text);
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning-border);
+}
+
+.search-dock {
+  --search-trigger-width: 3.2rem;
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  width: var(--search-trigger-width);
+  max-width: 100%;
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  background: var(--surface-card);
+  overflow: hidden;
+  transition: width 280ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.search-dock.expanded {
+  width: min(100%, 620px);
+}
+
+.search-dock.disabled {
+  opacity: 0.78;
+}
+
+.search-trigger {
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  width: var(--search-trigger-width);
+  min-width: var(--search-trigger-width);
+  min-height: 2.95rem;
+  padding: 0.44rem 0.86rem;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.search-trigger-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.search-trigger:hover {
+  background: var(--pill-active-bg);
+}
+
+.search-dock.disabled .search-trigger {
+  cursor: not-allowed;
+}
+
+.pokedex-search {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  border-left: 1px solid transparent;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.9rem;
+  outline: none;
+  opacity: 0;
+  transform: translateX(-10px);
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 240ms ease, border-color 180ms ease;
+}
+
+.search-dock.expanded .pokedex-search {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  border-left-color: var(--surface-border);
+}
+
+.pokedex-search::placeholder {
+  color: var(--text-muted);
+}
+
+.pokedex-search:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.pokedex-search:focus {
+  box-shadow: none;
+}
+
+.search-dock:focus-within {
+  border-color: var(--button-ghost-border);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pill-active-bg) 40%, transparent);
+}
+
+.app-toast-viewport {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: grid;
+  gap: 0.6rem;
+  width: min(86vw, 420px);
+}
+
+.app-toast {
+  min-width: 280px;
+  max-width: min(86vw, 420px);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0.72rem 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(6px);
+  animation: toast-in 220ms ease;
+}
+
+.app-toast.success {
+  color: var(--status-success-text);
+  background: color-mix(in srgb, var(--status-success-bg) 86%, #0f2138);
+  border-color: var(--status-success-border);
+}
+
+.app-toast.info {
+  color: var(--status-info-text);
+  background: color-mix(in srgb, var(--status-info-bg) 86%, #0f2138);
+  border-color: var(--status-info-border);
+}
+
+.app-toast.warning {
+  color: var(--status-warning-text);
+  background: color-mix(in srgb, var(--status-warning-bg) 86%, #0f2138);
+  border-color: var(--status-warning-border);
+}
+
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-status.inline {
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pokedex-footer {
+  margin-top: 0.85rem;
+  min-height: 2rem;
+}
+
+.scroll-action-dock {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 56;
+  display: grid;
+  gap: 0.55rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.scroll-action-dock.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.scroll-action-btn {
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--surface-border);
+  background: color-mix(in srgb, var(--surface-card) 90%, transparent);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 24px var(--surface-shadow);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.scroll-action-btn:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--pill-active-bg) 78%, transparent);
+}
+
+.scroll-action-btn-icon {
+  width: 1.24rem;
+  height: 1.24rem;
+}
+
+.scroll-action-btn-icon.is-bobbing {
+  animation: scroll-arrow-bob 1.1s ease-in-out infinite;
+}
+
+@keyframes scroll-arrow-bob {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AddedConfigsSection } from '../components/calculate/AddedConfigsSection'
+import { CalculateBuilderForm } from '../components/calculate/CalculateBuilderForm'
+import { NatureSelectionModal } from '../components/calculate/NatureSelectionModal'
+import { SubSkillSelectionModal } from '../components/calculate/SubSkillSelectionModal'
 import { MaterialIcon } from '../components/MaterialIcon'
+import { ModalShell } from '../components/ModalShell'
 import { fetchAssetDexEntries, fetchNatureDexEntries } from '../services/catalogDex'
 import { fetchDexEntries } from '../services/pokedex'
 import { useToastStore } from '../stores/toastStore'
@@ -13,6 +18,7 @@ const SUBSKILL_EFFECT_ORDER = ['gold', 'blue', 'white'] as const
 const POKEMON_LEVEL_PRESETS = [1, 10, 25, 30, 50, 60, 65, 75, 100] as const
 const POKEMON_LEVEL_MIN = 1
 const POKEMON_LEVEL_MAX = 100
+const CALCULATE_ADDED_CONFIGS_STORAGE_KEY = 'calculate:added-configs:v1'
 
 function normalizeNatureEffectName(value: string): string {
   const text = value.trim()
@@ -95,12 +101,37 @@ function clampPokemonLevel(value: number): number {
   return Math.min(POKEMON_LEVEL_MAX, Math.max(POKEMON_LEVEL_MIN, Math.round(value)))
 }
 
+function normalizeStoredSubSkillsByLevel(raw: unknown): Record<number, number | null> {
+  const base = createEmptyLevelSelection()
+  if (!raw || typeof raw !== 'object') {
+    return base
+  }
+
+  const map = raw as Record<string, unknown>
+  for (const level of SUBSKILL_LEVELS) {
+    const value = map[String(level)]
+    if (value === null) {
+      base[level] = null
+      continue
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      base[level] = value
+    }
+  }
+  return base
+}
+
 type AddedCalculationConfig = {
   id: string
   pokemon: PokemonDexCard
   level: number
+  natureId: number | null
   natureLabel: string
   subSkillsByLevel: Record<number, number | null>
+}
+
+function createCalculationConfigId(dexNo: number): string {
+  return `${dexNo}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
 export function CalculatePage() {
@@ -121,6 +152,7 @@ export function CalculatePage() {
   const [isSubSkillModalOpen, setIsSubSkillModalOpen] = useState(false)
   const [activeSubSkillLevel, setActiveSubSkillLevel] = useState<number>(SUBSKILL_LEVELS[0])
   const [addedConfigs, setAddedConfigs] = useState<AddedCalculationConfig[]>([])
+  const [editingConfigId, setEditingConfigId] = useState<string | null>(null)
   const [selectedSubSkillsByLevel, setSelectedSubSkillsByLevel] = useState<Record<number, number | null>>(
     createEmptyLevelSelection(),
   )
@@ -165,6 +197,73 @@ export function CalculatePage() {
       cancelled = true
     }
   }, [showToast])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      const text = window.localStorage.getItem(CALCULATE_ADDED_CONFIGS_STORAGE_KEY)
+      if (!text) {
+        return
+      }
+
+      const parsed = JSON.parse(text) as unknown
+      if (!Array.isArray(parsed)) {
+        return
+      }
+
+      const restored: AddedCalculationConfig[] = []
+      for (const item of parsed) {
+        if (!item || typeof item !== 'object') {
+          continue
+        }
+        const raw = item as Record<string, unknown>
+        const pokemon = raw.pokemon as PokemonDexCard | undefined
+        if (!pokemon || typeof pokemon !== 'object') {
+          continue
+        }
+        if (typeof pokemon.dexNo !== 'number' || !Number.isFinite(pokemon.dexNo) || typeof pokemon.name !== 'string') {
+          continue
+        }
+
+        const id = typeof raw.id === 'string' && raw.id ? raw.id : createCalculationConfigId(pokemon.dexNo)
+        const level = clampPokemonLevel(typeof raw.level === 'number' ? raw.level : POKEMON_LEVEL_MIN)
+        const natureId = typeof raw.natureId === 'number' && Number.isFinite(raw.natureId) ? raw.natureId : null
+        const natureLabel = typeof raw.natureLabel === 'string' && raw.natureLabel ? raw.natureLabel : '未选择性格'
+
+        restored.push({
+          id,
+          pokemon,
+          level,
+          natureId,
+          natureLabel,
+          subSkillsByLevel: normalizeStoredSubSkillsByLevel(raw.subSkillsByLevel),
+        })
+      }
+
+      setAddedConfigs(restored)
+    } catch {
+      // Ignore malformed local cache.
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      if (addedConfigs.length === 0) {
+        window.localStorage.removeItem(CALCULATE_ADDED_CONFIGS_STORAGE_KEY)
+        return
+      }
+      window.localStorage.setItem(CALCULATE_ADDED_CONFIGS_STORAGE_KEY, JSON.stringify(addedConfigs))
+    } catch {
+      // Ignore write failures (private mode/quota).
+    }
+  }, [addedConfigs])
 
   const selectedPokemon = useMemo(
     () => pokemons.find((pokemon) => String(pokemon.dexNo) === selectedPokemonId) ?? null,
@@ -235,6 +334,7 @@ export function CalculatePage() {
   )
 
   const resetSelections = () => {
+    setEditingConfigId(null)
     setSelectedPokemonId('')
     setSelectedPokemonLevel(POKEMON_LEVEL_MIN)
     setPokemonQuery('')
@@ -414,21 +514,64 @@ export function CalculatePage() {
     }
   }
 
+  const removeConfig = (configId: string) => {
+    setAddedConfigs((current) => current.filter((item) => item.id !== configId))
+  }
+
+  const copyConfig = (configId: string) => {
+    setAddedConfigs((current) => {
+      const index = current.findIndex((item) => item.id === configId)
+      if (index < 0) {
+        return current
+      }
+
+      const source = current[index]
+      const cloned: AddedCalculationConfig = {
+        ...source,
+        id: createCalculationConfigId(source.pokemon.dexNo),
+        subSkillsByLevel: { ...source.subSkillsByLevel },
+      }
+      return [...current.slice(0, index + 1), cloned, ...current.slice(index + 1)]
+    })
+  }
+
+  const editConfig = (config: AddedCalculationConfig) => {
+    const fallbackNature = natures.find((item) => getNatureLabel(item) === config.natureLabel) ?? null
+    const resolvedNatureId =
+      config.natureId !== null && natures.some((item) => item.id === config.natureId) ? config.natureId : fallbackNature?.id ?? null
+
+    setEditingConfigId(config.id)
+    setSelectedPokemonId(String(config.pokemon.dexNo))
+    setSelectedPokemonLevel(clampPokemonLevel(config.level))
+    setSelectedSubSkillsByLevel(normalizeStoredSubSkillsByLevel(config.subSkillsByLevel))
+    setSelectedNatureId(resolvedNatureId !== null ? String(resolvedNatureId) : '')
+    setSelectedNatureUpEffect('')
+    setSelectedNatureDownEffect('')
+    setIsNatureModalDirty(false)
+    setActiveSubSkillLevel(SUBSKILL_LEVELS.find((level) => config.subSkillsByLevel[level] === null) ?? SUBSKILL_LEVELS[0])
+    setIsBuilderOpen(true)
+  }
+
   const addConfig = () => {
     if (!selectedPokemon) {
       return
     }
 
-    setAddedConfigs((current) => [
-      ...current,
-      {
-        id: `${selectedPokemon.dexNo}-${Date.now()}`,
-        pokemon: selectedPokemon,
-        level: selectedPokemonLevel,
-        natureLabel: selectedNature ? getNatureLabel(selectedNature) : '未选择性格',
-        subSkillsByLevel: { ...selectedSubSkillsByLevel },
-      },
-    ])
+    const nextConfig: AddedCalculationConfig = {
+      id: editingConfigId ?? createCalculationConfigId(selectedPokemon.dexNo),
+      pokemon: selectedPokemon,
+      level: selectedPokemonLevel,
+      natureId: selectedNature ? selectedNature.id : null,
+      natureLabel: selectedNature ? getNatureLabel(selectedNature) : '未选择性格',
+      subSkillsByLevel: { ...selectedSubSkillsByLevel },
+    }
+
+    setAddedConfigs((current) => {
+      if (!editingConfigId) {
+        return [...current, nextConfig]
+      }
+      return current.map((item) => (item.id === editingConfigId ? nextConfig : item))
+    })
 
     resetSelections()
     setIsPokemonDropdownOpen(false)
@@ -447,7 +590,10 @@ export function CalculatePage() {
         <button
           type="button"
           className="calculate-add-trigger calculate-add-trigger-floating"
-          onClick={() => setIsBuilderOpen(true)}
+          onClick={() => {
+            resetSelections()
+            setIsBuilderOpen(true)
+          }}
           disabled={loadState === 'loading'}
           aria-expanded={isBuilderOpen}
           aria-controls="calculate-builder-panel"
@@ -458,479 +604,152 @@ export function CalculatePage() {
       </header>
 
       <article className="dex-card calculate-card">
-        <p className="calculate-trigger-hint">
-          {loadState === 'loading' ? '正在加载宝可梦与副技能数据...' : '点击加号开始新增一组计算配置'}
-        </p>
+        {addedConfigs.length === 0 && (
+          <p className="calculate-trigger-hint">
+            {loadState === 'loading' ? '正在加载宝可梦与副技能数据...' : '点击加号开始新增一组计算配置'}
+          </p>
+        )}
 
         {loadState === 'error' && <p className="page-status warning inline">加载失败，请检查数据源配置后重试。</p>}
 
-        {addedConfigs.length > 0 && (
-          <section className="calculate-added-configs" aria-label="已添加配置">
-            <h3>已添加配置</h3>
-            <div className="calculate-added-list">
-              {addedConfigs.map((config) => (
-                <article key={config.id} className="calculate-added-item">
-                  <header>
-                    {getPokemonImageUrl(config.pokemon) ? (
-                      <img src={getPokemonImageUrl(config.pokemon)} alt={config.pokemon.name} />
-                    ) : (
-                      <span className="calculate-pokemon-option-dot" aria-hidden="true" />
-                    )}
-                    <strong>{getPokemonLabel(config.pokemon)}</strong>
-                    <span className="calculate-added-level">{`Lv${config.level}`}</span>
-                    <span className="calculate-added-nature">{config.natureLabel}</span>
-                  </header>
-                  <div className="calculate-added-subskills">
-                    {SUBSKILL_LEVELS.map((level) => {
-                      const subSkillId = config.subSkillsByLevel[level]
-                      const selectedSubSkill = subSkillId !== null ? subSkillById.get(subSkillId) ?? null : null
-                      return (
-                        <span key={`added-${config.id}-lv-${level}`} className="asset-chip">
-                          <strong>{`Lv${level}`}</strong>
-                          {selectedSubSkill ? (
-                            <>
-                              <SubSkillEffectIcon skill={selectedSubSkill} />
-                              <em>{getSubSkillLabel(selectedSubSkill)}</em>
-                            </>
-                          ) : (
-                            <em>未选择</em>
-                          )}
-                        </span>
-                      )
-                    })}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <AddedConfigsSection
+          addedConfigs={addedConfigs}
+          subSkillLevels={SUBSKILL_LEVELS}
+          subSkillById={subSkillById}
+          onEdit={editConfig}
+          onCopy={copyConfig}
+          onDelete={removeConfig}
+          getPokemonImageUrl={getPokemonImageUrl}
+          getPokemonLabel={getPokemonLabel}
+          getSubSkillLabel={getSubSkillLabel}
+          SubSkillEffectIcon={SubSkillEffectIcon}
+        />
       </article>
 
       {isBuilderOpen && loadState === 'ready' && (
-        <div className="asset-modal-backdrop calculate-subskill-modal-backdrop" onClick={() => setIsBuilderOpen(false)}>
-          <section
-            id="calculate-builder-panel"
-            className="asset-modal-panel calculate-subskill-modal calculate-builder-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="添加配置"
-            onClick={(event) => event.stopPropagation()}
-          >
+        <ModalShell
+          ariaLabel="添加配置"
+          backdropClassName="calculate-subskill-modal-backdrop"
+          panelClassName="calculate-subskill-modal calculate-builder-modal"
+          onClose={() => setIsBuilderOpen(false)}
+        >
+          <section id="calculate-builder-panel">
             <header className="asset-modal-header calculate-subskill-modal-header">
               <p className="asset-modal-eyebrow">Config</p>
-              <h3>添加配置</h3>
+              <h3>{editingConfigId ? '编辑配置' : '添加配置'}</h3>
               <button type="button" className="button ghost calculate-builder-close-btn" onClick={() => setIsBuilderOpen(false)}>
                 关闭
               </button>
             </header>
 
-            <section className="calculate-builder">
-              <div className="auth-field">
-                <span>宝可梦</span>
-                <div ref={pokemonSelectRef} className={`calculate-pokemon-select ${isPokemonDropdownOpen ? 'is-open' : ''}`}>
-                  <button
-                    type="button"
-                    className="calculate-pokemon-trigger"
-                    onClick={() => setIsPokemonDropdownOpen((current) => !current)}
-                    aria-expanded={isPokemonDropdownOpen}
-                    aria-controls="calculate-pokemon-dropdown"
-                  >
-                    {selectedPokemon ? (
-                      <span className="calculate-pokemon-option-value">
-                        {getPokemonImageUrl(selectedPokemon) ? (
-                          <img src={getPokemonImageUrl(selectedPokemon)} alt={selectedPokemon.name} />
-                        ) : (
-                          <span className="calculate-pokemon-option-dot" aria-hidden="true" />
-                        )}
-                        <strong>{`#${selectedPokemon.dexNo.toString().padStart(3, '0')}`}</strong>
-                        <em>{selectedPokemon.name}</em>
-                      </span>
-                    ) : (
-                      <span className="calculate-pokemon-placeholder">请选择宝可梦</span>
-                    )}
-                  </button>
-
-                  {isPokemonDropdownOpen && (
-                    <div id="calculate-pokemon-dropdown" className="calculate-pokemon-dropdown" role="listbox" aria-label="宝可梦列表">
-                      <input
-                        type="search"
-                        value={pokemonQuery}
-                        onChange={(event) => setPokemonQuery(event.target.value)}
-                        className="calculate-pokemon-search-input"
-                        placeholder="搜索宝可梦名称或编号"
-                        aria-label="搜索宝可梦"
-                      />
-                      <div className="calculate-pokemon-options">
-                        {filteredPokemons.map((pokemon) => (
-                          <button
-                            key={pokemon.id}
-                            type="button"
-                            className={`calculate-pokemon-option ${selectedPokemonId === String(pokemon.dexNo) ? 'active' : ''}`}
-                            onClick={(event) => {
-                              event.preventDefault()
-                              event.stopPropagation()
-                              setSelectedPokemonId(String(pokemon.dexNo))
-                              setSelectedPokemonLevel(POKEMON_LEVEL_MIN)
-                              setSelectedNatureId('')
-                              setSelectedNatureUpEffect('')
-                              setSelectedNatureDownEffect('')
-                              setIsNatureModalDirty(false)
-                              setSelectedSubSkillsByLevel(createEmptyLevelSelection())
-                              setActiveSubSkillLevel(SUBSKILL_LEVELS[0])
-                              setIsPokemonDropdownOpen(false)
-                            }}
-                            role="option"
-                            aria-selected={selectedPokemonId === String(pokemon.dexNo)}
-                          >
-                            {getPokemonImageUrl(pokemon) ? (
-                              <img src={getPokemonImageUrl(pokemon)} alt={pokemon.name} />
-                            ) : (
-                              <span className="calculate-pokemon-option-dot" aria-hidden="true" />
-                            )}
-                            <strong>{`#${pokemon.dexNo.toString().padStart(3, '0')}`}</strong>
-                            <em>{pokemon.name}</em>
-                          </button>
-                        ))}
-                        {filteredPokemons.length === 0 && <p className="calculate-pokemon-empty">没有匹配到宝可梦</p>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {selectedPokemon && (
-                <section className="calculate-level-card" aria-label="宝可梦等级设置">
-                  <div className="calculate-level-header">
-                    <span>宝可梦等级</span>
-                    <strong>{selectedPokemonLevel}</strong>
-                  </div>
-                  <input
-                    type="range"
-                    min={POKEMON_LEVEL_MIN}
-                    max={POKEMON_LEVEL_MAX}
-                    step={1}
-                    value={selectedPokemonLevel}
-                    onChange={(event) => setSelectedPokemonLevel(clampPokemonLevel(Number(event.target.value)))}
-                    className="calculate-level-slider"
-                    aria-label="宝可梦等级滑块"
-                  />
-                  <div className="calculate-level-presets" role="listbox" aria-label="等级快捷选择">
-                    {POKEMON_LEVEL_PRESETS.map((level) => (
-                      <button
-                        key={`pokemon-level-${level}`}
-                        type="button"
-                        className={`calculate-level-preset ${selectedPokemonLevel === level ? 'active' : ''}`}
-                        onClick={() => setSelectedPokemonLevel(level)}
-                        role="option"
-                        aria-selected={selectedPokemonLevel === level}
-                      >
-                        {level}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {selectedPokemon && (
-                <dl className="calculate-pokemon-stats" aria-label="宝可梦属性">
-                  <div className="calculate-pokemon-stat-item">
-                    <dt>食材几率</dt>
-                    <dd>{formatPokemonMetric(selectedPokemon.ingredientDropRate, '%')}</dd>
-                  </div>
-                  <div className="calculate-pokemon-stat-item">
-                    <dt>技能触发几率</dt>
-                    <dd>{formatPokemonMetric(selectedPokemon.skillTriggerRate, '%')}</dd>
-                  </div>
-                  <div className="calculate-pokemon-stat-item">
-                    <dt>技能保底触发次数</dt>
-                    <dd>{formatPokemonMetric(selectedPokemon.skillPityTriggerRequiredAssists, '次')}</dd>
-                  </div>
-                  <div className="calculate-pokemon-stat-item">
-                    <dt>帮忙间隔</dt>
-                    <dd>{formatPokemonMetric(selectedPokemon.assistInterval, ' s')}</dd>
-                  </div>
-                </dl>
-              )}
-
-              <div className="calculate-subskill-section">
-                <div className="calculate-subskill-header">
-                  <span>副技能</span>
-                  <small>{`已选择 ${selectedSubSkillCount}/5`}</small>
-                </div>
-
-                <div className="calculate-subskill-grid">
-                  {SUBSKILL_LEVELS.map((level) => {
-                    const subSkillId = selectedSubSkillsByLevel[level]
-                    const selectedSubSkill = subSkillId !== null ? subSkillById.get(subSkillId) ?? null : null
-                    return (
-                      <button
-                        key={`subskill-level-${level}`}
-                        type="button"
-                        className={`calculate-subskill-slot ${subSkillId !== null ? 'filled' : ''}`}
-                        onClick={() => handleSubSkillSlotClick(level)}
-                        onDoubleClick={() => handleSubSkillSlotDoubleClick(level, subSkillId !== null)}
-                        title={subSkillId !== null ? '双击可取消当前副技能' : '点击选择副技能'}
-                      >
-                        <strong>{`Lv${level}`}</strong>
-                        {selectedSubSkill ? (
-                          <span className="calculate-subskill-slot-value">
-                            <SubSkillEffectIcon skill={selectedSubSkill} />
-                            <em>{getSubSkillLabel(selectedSubSkill)}</em>
-                          </span>
-                        ) : (
-                          <em>点击选择副技能</em>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="auth-field">
-                <span>性格</span>
-                <div className="calculate-nature-picker-wrap">
-                  <button
-                    type="button"
-                    className="calculate-nature-picker-trigger"
-                    onClick={() => {
-                      setSelectedNatureUpEffect(selectedNature ? normalizeNatureEffectName(selectedNature.upName) : '')
-                      setSelectedNatureDownEffect(selectedNature ? normalizeNatureEffectName(selectedNature.downName) : '')
-                      setIsNatureModalDirty(false)
-                      setIsNatureModalOpen(true)
-                    }}
-                    aria-haspopup="dialog"
-                    aria-expanded={isNatureModalOpen}
-                  >
-                    {selectedNature ? (
-                      <span className="calculate-nature-picker-value">
-                        <strong>{getNatureLabel(selectedNature)}</strong>
-                        <em className="calculate-nature-picker-effects">
-                          <span className="calculate-nature-picker-effect">
-                            <MaterialIcon name="arrow_drop_up" className="calculate-nature-up-icon" size={18} />
-                            <span>{formatNatureEffectName(selectedNature.upName)}</span>
-                          </span>
-                          <span className="calculate-nature-picker-split">/</span>
-                          <span className="calculate-nature-picker-effect">
-                            <MaterialIcon name="arrow_drop_down" className="calculate-nature-down-icon" size={18} />
-                            <span>{formatNatureEffectName(selectedNature.downName)}</span>
-                          </span>
-                        </em>
-                      </span>
-                    ) : (
-                      <span className="calculate-pokemon-placeholder">请选择性格（弹窗）</span>
-                    )}
-                  </button>
-                  {selectedNature && (
-                    <button
-                      type="button"
-                      className="calculate-nature-delete-btn"
-                      aria-label="清空性格"
-                      title="清空性格"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setSelectedNatureId('')
-                        setSelectedNatureUpEffect('')
-                        setSelectedNatureDownEffect('')
-                        setIsNatureModalDirty(false)
-                      }}
-                    >
-                      <MaterialIcon name="delete" size={16} className="calculate-nature-delete-icon" />
-                    </button>
-                  )}
-                </div>
-                <small className="profile-edit-hint">选择积极与消极效果后将自动匹配唯一性格。</small>
-              </div>
-
-              <div className="calculate-actions">
-                <button type="button" className="button ghost" onClick={resetSelections}>
-                  清空
-                </button>
-                <button
-                  type="button"
-                  className="button primary calculate-add-config-btn"
-                  onClick={addConfig}
-                  disabled={!canAddConfig}
-                  aria-label="添加当前配置"
-                  title="添加当前配置"
-                >
-                  <img src="/icons/material/add.svg" alt="" aria-hidden="true" />
-                </button>
-              </div>
-            </section>
+            <CalculateBuilderForm
+              pokemonSelectRef={pokemonSelectRef}
+              isPokemonDropdownOpen={isPokemonDropdownOpen}
+              selectedPokemon={selectedPokemon}
+              selectedPokemonId={selectedPokemonId}
+              pokemonQuery={pokemonQuery}
+              filteredPokemons={filteredPokemons}
+              selectedPokemonLevel={selectedPokemonLevel}
+              pokemonLevelMin={POKEMON_LEVEL_MIN}
+              pokemonLevelMax={POKEMON_LEVEL_MAX}
+              pokemonLevelPresets={POKEMON_LEVEL_PRESETS}
+              selectedSubSkillCount={selectedSubSkillCount}
+              subSkillLevels={SUBSKILL_LEVELS}
+              selectedSubSkillsByLevel={selectedSubSkillsByLevel}
+              subSkillById={subSkillById}
+              selectedNature={selectedNature}
+              isNatureModalOpen={isNatureModalOpen}
+              canAddConfig={canAddConfig}
+              editingConfigId={editingConfigId}
+              onTogglePokemonDropdown={() => setIsPokemonDropdownOpen((current) => !current)}
+              onPokemonQueryChange={setPokemonQuery}
+              onSelectPokemon={(pokemon) => {
+                setSelectedPokemonId(String(pokemon.dexNo))
+                setSelectedPokemonLevel(POKEMON_LEVEL_MIN)
+                setSelectedNatureId('')
+                setSelectedNatureUpEffect('')
+                setSelectedNatureDownEffect('')
+                setIsNatureModalDirty(false)
+                setSelectedSubSkillsByLevel(createEmptyLevelSelection())
+                setActiveSubSkillLevel(SUBSKILL_LEVELS[0])
+                setIsPokemonDropdownOpen(false)
+              }}
+              onPokemonLevelChange={(value) => setSelectedPokemonLevel(clampPokemonLevel(value))}
+              onSubSkillSlotClick={handleSubSkillSlotClick}
+              onSubSkillSlotDoubleClick={handleSubSkillSlotDoubleClick}
+              onOpenNatureModal={() => {
+                setSelectedNatureUpEffect(selectedNature ? normalizeNatureEffectName(selectedNature.upName) : '')
+                setSelectedNatureDownEffect(selectedNature ? normalizeNatureEffectName(selectedNature.downName) : '')
+                setIsNatureModalDirty(false)
+                setIsNatureModalOpen(true)
+              }}
+              onClearNature={() => {
+                setSelectedNatureId('')
+                setSelectedNatureUpEffect('')
+                setSelectedNatureDownEffect('')
+                setIsNatureModalDirty(false)
+              }}
+              onResetSelections={resetSelections}
+              onAddConfig={addConfig}
+              getPokemonImageUrl={getPokemonImageUrl}
+              getNatureLabel={getNatureLabel}
+              getSubSkillLabel={getSubSkillLabel}
+              formatNatureEffectName={formatNatureEffectName}
+              formatPokemonMetric={formatPokemonMetric}
+              SubSkillEffectIcon={SubSkillEffectIcon}
+            />
           </section>
-        </div>
+        </ModalShell>
       )}
 
-      {isNatureModalOpen && (
-        <div className="asset-modal-backdrop calculate-subskill-modal-backdrop" onClick={() => setIsNatureModalOpen(false)}>
-          <section
-            className="asset-modal-panel calculate-subskill-modal calculate-nature-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="选择性格效果"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="asset-modal-header calculate-subskill-modal-header">
-              <p className="asset-modal-eyebrow">Nature</p>
-              <h3>选择性格效果</h3>
-            </header>
+      <NatureSelectionModal
+        isOpen={isNatureModalOpen}
+        onClose={() => setIsNatureModalOpen(false)}
+        natureUpEffects={natureUpEffects}
+        natureDownEffects={natureDownEffects}
+        selectedNatureUpEffect={selectedNatureUpEffect}
+        selectedNatureDownEffect={selectedNatureDownEffect}
+        formatNatureEffectName={formatNatureEffectName}
+        onSelectUpEffect={(effect) => {
+          if (selectedNatureUpEffect !== effect) {
+            setIsNatureModalDirty(true)
+          }
+          setSelectedNatureUpEffect(effect)
+        }}
+        onSelectDownEffect={(effect) => {
+          if (selectedNatureDownEffect !== effect) {
+            setIsNatureModalDirty(true)
+          }
+          setSelectedNatureDownEffect(effect)
+        }}
+      />
 
-            <div className="calculate-nature-effect-panel">
-              <div className="calculate-nature-effect-row">
-                <p>
-                  <MaterialIcon name="arrow_drop_up" className="calculate-nature-up-icon" size={18} />
-                  积极效果
-                </p>
-                <div className={`calculate-nature-effect-options ${selectedNatureUpEffect ? 'has-selection' : ''}`}>
-                  {natureUpEffects.map((effect) => {
-                    const lockedByDown = selectedNatureDownEffect === effect && effect !== ''
-                    return (
-                    <button
-                      key={`nature-up-${effect || 'none'}`}
-                      type="button"
-                      className={`calculate-nature-effect-option ${selectedNatureUpEffect === effect ? 'active' : ''} ${selectedNatureUpEffect && selectedNatureUpEffect !== effect ? 'dimmed' : ''} ${lockedByDown ? 'is-locked' : ''}`}
-                      onClick={() => {
-                        if (lockedByDown) {
-                          return
-                        }
-                        if (selectedNatureUpEffect !== effect) {
-                          setIsNatureModalDirty(true)
-                        }
-                        setSelectedNatureUpEffect(effect)
-                      }}
-                      disabled={lockedByDown}
-                      aria-disabled={lockedByDown}
-                    >
-                      {formatNatureEffectName(effect)}
-                    </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="calculate-nature-effect-row">
-                <p>
-                  <MaterialIcon name="arrow_drop_down" className="calculate-nature-down-icon" size={18} />
-                  消极效果
-                </p>
-                <div className={`calculate-nature-effect-options ${selectedNatureDownEffect ? 'has-selection' : ''}`}>
-                  {natureDownEffects.map((effect) => {
-                    const lockedByUp = selectedNatureUpEffect === effect && effect !== ''
-                    return (
-                    <button
-                      key={`nature-down-${effect || 'none'}`}
-                      type="button"
-                      className={`calculate-nature-effect-option ${selectedNatureDownEffect === effect ? 'active' : ''} ${selectedNatureDownEffect && selectedNatureDownEffect !== effect ? 'dimmed' : ''} ${lockedByUp ? 'is-locked' : ''}`}
-                      onClick={() => {
-                        if (lockedByUp) {
-                          return
-                        }
-                        if (selectedNatureDownEffect !== effect) {
-                          setIsNatureModalDirty(true)
-                        }
-                        setSelectedNatureDownEffect(effect)
-                      }}
-                      disabled={lockedByUp}
-                      aria-disabled={lockedByUp}
-                    >
-                      {formatNatureEffectName(effect)}
-                    </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <p className="calculate-subskill-modal-hint">
-                已选：{`↑ ${formatNatureEffectName(selectedNatureUpEffect)} / ↓ ${formatNatureEffectName(selectedNatureDownEffect)}`}
-              </p>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {isSubSkillModalOpen && (
-        <div className="asset-modal-backdrop calculate-subskill-modal-backdrop" onClick={() => setIsSubSkillModalOpen(false)}>
-          <section className="asset-modal-panel calculate-subskill-modal" role="dialog" aria-modal="true" aria-label="选择副技能" onClick={(event) => event.stopPropagation()}>
-            <header className="asset-modal-header calculate-subskill-modal-header">
-              <p className="asset-modal-eyebrow">Sub Skill</p>
-              <h3>{selectedPokemon ? `${getPokemonLabel(selectedPokemon)} - 副技能` : '副技能选择'}</h3>
-            </header>
-
-            <div className="calculate-subskill-modal-levels">
-              {SUBSKILL_LEVELS.map((level) => {
-                const selectedSubSkillId = selectedSubSkillsByLevel[level]
-                const selectedSubSkill = selectedSubSkillId !== null ? subSkillById.get(selectedSubSkillId) ?? null : null
-                return (
-                  <button
-                    key={`modal-level-${level}`}
-                    type="button"
-                    className={`calculate-subskill-level-tab ${activeSubSkillLevel === level ? 'active' : ''}`}
-                    onClick={() => setActiveSubSkillLevel(level)}
-                  >
-                    <span className="calculate-subskill-level-tab-label">{`Lv${level}`}</span>
-                    {selectedSubSkill && <SubSkillEffectIcon skill={selectedSubSkill} />}
-                  </button>
-                )
-              })}
-            </div>
-
-            <p className="calculate-subskill-modal-hint">{`请按顺序选择，当前：Lv${activeSubSkillLevel}（已选 ${selectedSubSkillCount}/5，双击已选项可取消）`}</p>
-
-            <div className="calculate-subskill-modal-sections" role="listbox" aria-label="副技能列表">
-              {groupedSubSkills.map((section) => (
-                <section
-                  key={`subskill-section-${section.effectType}`}
-                  className={`calculate-subskill-effect-section effect-${section.effectType}`}
-                  aria-label={`${section.effectType} 副技能`}
-                >
-                  <header className="calculate-subskill-effect-section-title">
-                    {section.effectType === 'gold' ? '金色技能' : section.effectType === 'blue' ? '蓝色技能' : '白色技能'}
-                  </header>
-                  <div className="calculate-subskill-modal-options">
-                    {section.items.map((subSkill) => {
-                      const ownerLevel = subSkillOwnerLevelMap.get(subSkill.id) ?? null
-                      const selectedForCurrentLevel = ownerLevel === activeSubSkillLevel
-                      const lockedByOtherLevel = ownerLevel !== null && ownerLevel !== activeSubSkillLevel
-                      return (
-                        <button
-                          key={`modal-subskill-${subSkill.id}`}
-                          type="button"
-                          className={`calculate-subskill-modal-option ${selectedForCurrentLevel ? 'active' : ''} ${lockedByOtherLevel ? 'is-locked' : ''}`}
-                          onClick={() => {
-                            if (lockedByOtherLevel) {
-                              showToast({
-                                id: `calculate-subskill-locked-${subSkill.id}-${ownerLevel}`,
-                                message: `该副技能已被 Lv${ownerLevel} 使用，请先取消后再选择。`,
-                                variant: 'info',
-                                durationMs: 2000,
-                              })
-                              return
-                            }
-                            selectSubSkillFromModal(subSkill.id)
-                          }}
-                          onDoubleClick={() => {
-                            if (!selectedForCurrentLevel) {
-                              return
-                            }
-                            clearSubSkillSelection(activeSubSkillLevel)
-                          }}
-                          aria-disabled={lockedByOtherLevel}
-                          title={selectedForCurrentLevel ? '双击可取消当前等级的副技能' : lockedByOtherLevel ? `已被 Lv${ownerLevel} 使用` : undefined}
-                        >
-                          <SubSkillEffectIcon skill={subSkill} />
-                          <em>{getSubSkillLabel(subSkill)}</em>
-                        </button>
-                      )
-                    })}
-                    {section.items.length === 0 && <p className="calculate-pokemon-empty">该颜色暂无副技能</p>}
-                  </div>
-                </section>
-              ))}
-              {subSkills.length === 0 && <p className="calculate-pokemon-empty">暂无副技能数据</p>}
-            </div>
-          </section>
-        </div>
-      )}
+      <SubSkillSelectionModal
+        isOpen={isSubSkillModalOpen}
+        onClose={() => setIsSubSkillModalOpen(false)}
+        title={selectedPokemon ? `${getPokemonLabel(selectedPokemon)} - 副技能` : '副技能选择'}
+        subSkillLevels={SUBSKILL_LEVELS}
+        activeSubSkillLevel={activeSubSkillLevel}
+        selectedSubSkillCount={selectedSubSkillCount}
+        selectedSubSkillsByLevel={selectedSubSkillsByLevel}
+        subSkillById={subSkillById}
+        subSkillOwnerLevelMap={subSkillOwnerLevelMap}
+        groupedSubSkills={groupedSubSkills}
+        subSkillsLength={subSkills.length}
+        onActiveSubSkillLevelChange={setActiveSubSkillLevel}
+        onSelectSubSkill={selectSubSkillFromModal}
+        onClearSubSkillAtLevel={clearSubSkillSelection}
+        onLockedSubSkillClick={(subSkillId, ownerLevel) => {
+          showToast({
+            id: `calculate-subskill-locked-${subSkillId}-${ownerLevel}`,
+            message: `该副技能已被 Lv${ownerLevel} 使用，请先取消后再选择。`,
+            variant: 'info',
+            durationMs: 2000,
+          })
+        }}
+        getSubSkillLabel={getSubSkillLabel}
+        SubSkillEffectIcon={SubSkillEffectIcon}
+      />
     </section>
   )
 }

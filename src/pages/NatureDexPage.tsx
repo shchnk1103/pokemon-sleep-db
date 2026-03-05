@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CardAdminActions } from '../components/CardAdminActions'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 import { DexSearchDock } from '../components/DexSearchDock'
 import { MaterialIcon } from '../components/MaterialIcon'
 import { useAuth } from '../context/AuthContext'
@@ -307,41 +308,20 @@ export function NatureDexPage() {
       </div>
 
       {canManageCatalog && pendingDeleteEntry && (
-        <div
-          className="asset-delete-confirm-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isDeletingEntry) {
-              setPendingDeleteEntry(null)
-            }
-          }}
-        >
-          <section className="asset-delete-confirm-panel" role="dialog" aria-modal="true" aria-label="删除性格确认">
-            <p className="asset-delete-confirm-title">确认删除？</p>
-            <p className="asset-delete-confirm-text">
+        <DeleteConfirmDialog
+          dialogLabel="删除性格确认"
+          title="确认删除？"
+          text={
+            <>
               即将删除：
               <strong>{pendingDeleteEntry.name || `ID ${pendingDeleteEntry.id}`}</strong>
               。此操作不可撤销。
-            </p>
-            <div className="asset-delete-confirm-actions">
-              <button
-                type="button"
-                className="button ghost"
-                disabled={isDeletingEntry}
-                onClick={() => setPendingDeleteEntry(null)}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className="button primary asset-delete-confirm-danger"
-                disabled={isDeletingEntry}
-                onClick={confirmDeleteEntry}
-              >
-                {isDeletingEntry ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </section>
-        </div>
+            </>
+          }
+          isConfirming={isDeletingEntry}
+          onCancel={() => setPendingDeleteEntry(null)}
+          onConfirm={confirmDeleteEntry}
+        />
       )}
     </section>
   )

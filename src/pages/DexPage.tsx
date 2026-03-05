@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CardAdminActions } from '../components/CardAdminActions'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 import { DexSearchDock } from '../components/DexSearchDock'
 import { useAuth } from '../context/AuthContext'
 import { deletePokemonEntry, fetchDexEntries, invalidateDexCache } from '../services/pokedex'
@@ -626,36 +627,20 @@ export function DexPage() {
       )}
 
       {pendingDeletePokemon && (
-        <div
-          className="asset-delete-confirm-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isDeletingPokemon) {
-              setPendingDeletePokemon(null)
-            }
-          }}
-        >
-          <section className="asset-delete-confirm-panel" role="dialog" aria-modal="true" aria-label="删除宝可梦确认">
-            <p className="asset-delete-confirm-title">确认删除宝可梦？</p>
-            <p className="asset-delete-confirm-text">
+        <DeleteConfirmDialog
+          dialogLabel="删除宝可梦确认"
+          title="确认删除宝可梦？"
+          text={
+            <>
               即将删除：
               <strong>{`#${pendingDeletePokemon.dexNo.toString().padStart(3, '0')} ${pendingDeletePokemon.name}`}</strong>
               。此操作不可撤销。
-            </p>
-            <div className="asset-delete-confirm-actions">
-              <button
-                type="button"
-                className="button ghost"
-                disabled={isDeletingPokemon}
-                onClick={() => setPendingDeletePokemon(null)}
-              >
-                取消
-              </button>
-              <button type="button" className="button primary asset-delete-confirm-danger" disabled={isDeletingPokemon} onClick={confirmDeletePokemon}>
-                {isDeletingPokemon ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </section>
-        </div>
+            </>
+          }
+          isConfirming={isDeletingPokemon}
+          onCancel={() => setPendingDeletePokemon(null)}
+          onConfirm={confirmDeletePokemon}
+        />
       )}
 
       {selectedPokemon && <PokemonDetailModal pokemon={selectedPokemon} onClose={() => setSelectedPokemon(null)} />}

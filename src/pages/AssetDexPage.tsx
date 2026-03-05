@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CardAdminActions } from '../components/CardAdminActions'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 import { DexSearchDock } from '../components/DexSearchDock'
+import { MainSkillLevelsModal } from '../components/asset/MainSkillLevelsModal'
 import { useAuth } from '../context/AuthContext'
 import { MaterialIcon } from '../components/MaterialIcon'
 import {
@@ -688,155 +690,35 @@ export function AssetDexPage({ catalog, title, description }: AssetDexPageProps)
       </div>
 
       {canManageCatalog && pendingDeleteEntry && (
-        <div
-          className="asset-delete-confirm-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isDeletingEntry) {
-              setPendingDeleteEntry(null)
-            }
-          }}
-        >
-          <section className="asset-delete-confirm-panel" role="dialog" aria-modal="true" aria-label="删除图鉴项确认">
-            <p className="asset-delete-confirm-title">确认删除？</p>
-            <p className="asset-delete-confirm-text">
+        <DeleteConfirmDialog
+          dialogLabel="删除图鉴项确认"
+          title="确认删除？"
+          text={
+            <>
               即将删除：
               <strong>{pendingDeleteEntry.chineseName ?? pendingDeleteEntry.name ?? `ID ${pendingDeleteEntry.id}`}</strong>
               。此操作不可撤销。
-            </p>
-            <div className="asset-delete-confirm-actions">
-              <button
-                type="button"
-                className="button ghost"
-                disabled={isDeletingEntry}
-                onClick={() => setPendingDeleteEntry(null)}
-              >
-                取消
-              </button>
-              <button type="button" className="button primary asset-delete-confirm-danger" disabled={isDeletingEntry} onClick={confirmDeleteEntry}>
-                {isDeletingEntry ? '删除中...' : '确认删除'}
-              </button>
-            </div>
-          </section>
-        </div>
+            </>
+          }
+          isConfirming={isDeletingEntry}
+          onCancel={() => setPendingDeleteEntry(null)}
+          onConfirm={confirmDeleteEntry}
+        />
       )}
 
       {catalog === 'mainskills' && selectedMainSkill && (
-        <div
-          className="asset-modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeMainSkillModal()
-            }
-          }}
-        >
-          <section
-            className="asset-modal-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${selectedMainSkill.chineseName ?? selectedMainSkill.name ?? `主技能 ID ${selectedMainSkill.id}`} 等级表`}
-          >
-            <header className="asset-modal-header">
-              <p className="asset-modal-eyebrow">主技能等级</p>
-              <h3>{selectedMainSkill.chineseName ?? selectedMainSkill.name ?? `主技能 ID ${selectedMainSkill.id}`}</h3>
-            </header>
-
-            {modalLoadState === 'loading' && <p className="page-status inline info">正在加载等级数据...</p>}
-
-            {modalLoadState === 'error' && <p className="page-status warning">{modalMessage}</p>}
-
-            {modalLoadState === 'ready' && mainSkillLevels.length === 0 && (
-              <p className="page-status inline info">暂无等级数据。</p>
-            )}
-
-            {modalLoadState === 'ready' && mainSkillLevels.length > 0 && (
-              <div className="asset-modal-table-wrap">
-                <table className="asset-modal-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">level</th>
-                      <th scope="col">value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mainSkillLevels.map((row) => (
-                      <tr key={`level-${row.level}`}>
-                        <td>{row.level}</td>
-                        <td>
-                          <span className="asset-level-value">
-                            <span>{formatValue(row.value)}</span>
-                            {row.extraEffects !== null && (
-                              <button
-                                type="button"
-                                className="asset-extra-effects-trigger"
-                                aria-label="查看额外效果"
-                                aria-haspopup="dialog"
-                                onMouseEnter={(event) => {
-                                  openExtraEffectsPopover(row.extraEffects, event.currentTarget)
-                                }}
-                                onMouseLeave={() => {
-                                  scheduleCloseExtraEffectsPopover()
-                                }}
-                                onFocus={(event) => {
-                                  openExtraEffectsPopover(row.extraEffects, event.currentTarget)
-                                }}
-                                onBlur={() => {
-                                  scheduleCloseExtraEffectsPopover()
-                                }}
-                              >
-                                !
-                              </button>
-                            )}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {extraEffectsPopover && (
-              <section
-                className={`asset-extra-effects-popover-floating ${extraEffectsPopover.placeAbove ? 'above' : 'below'}`}
-                style={{
-                  left: `${extraEffectsPopover.left}px`,
-                  top: `${extraEffectsPopover.top}px`,
-                }}
-                role="dialog"
-                aria-label="额外效果详情"
-                onMouseEnter={cancelCloseExtraEffectsPopover}
-                onMouseLeave={scheduleCloseExtraEffectsPopover}
-              >
-                {extraEffectsPopover.table ? (
-                  <div className="asset-extra-effects-table-wrap">
-                    <table className="asset-extra-effects-table">
-                      <thead>
-                        <tr>
-                          {extraEffectsPopover.table.columns.map((column) => (
-                            <th key={`extra-popover-col-${column}`} scope="col">
-                              {column}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {extraEffectsPopover.table.rows.map((cells, rowIndex) => (
-                          <tr key={`extra-popover-row-${rowIndex}`}>
-                            {cells.map((cell, cellIndex) => (
-                              <td key={`extra-popover-cell-${rowIndex}-${cellIndex}`}>{cell}</td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="asset-extra-effects-empty">无额外效果数据。</p>
-                )}
-              </section>
-            )}
-          </section>
-        </div>
+        <MainSkillLevelsModal
+          selectedMainSkill={selectedMainSkill}
+          modalLoadState={modalLoadState}
+          modalMessage={modalMessage}
+          mainSkillLevels={mainSkillLevels}
+          extraEffectsPopover={extraEffectsPopover}
+          onClose={closeMainSkillModal}
+          formatValue={formatValue}
+          onOpenExtraEffectsPopover={openExtraEffectsPopover}
+          onCancelCloseExtraEffectsPopover={cancelCloseExtraEffectsPopover}
+          onScheduleCloseExtraEffectsPopover={scheduleCloseExtraEffectsPopover}
+        />
       )}
     </section>
   )
